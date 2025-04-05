@@ -1,64 +1,80 @@
-# cli-word-embedding-classification
+# 📦 embed-classify-cli
 
-## Purpose
-Set of CLI scripts that:
-- Read CSV files and convert into json files for word embeddings
-- Compare unclassified input against existing word embeddings
-  - Writes predicted categories against unclassified input to CSV
-  - Optional: Test performance metrics of existing dataset
+Node.js CLI tool for local text classification using word embeddings.
 
-Generates embeddings locally via [Xenova/all-MiniLM-L6-v2](https://huggingface.co/Xenova/all-MiniLM-L6-v2)
+## 🚀 Features
 
-## CSV Formats
-Training and input CSV files must have the following headers:
-- `category`: The classification category
-- `comment`: The text content to be classified
+- 🔄 Convert CSV to JSON embeddings using [`Xenova/all-MiniLM-L6-v2`](https://huggingface.co/Xenova/all-MiniLM-L6-v2)
+- 🧠 Classify unlabelled text via pre-trained embeddings
+- 📈 Optional evaluation of dataset performance
+- 🗃️ Works with CSVs containing `category` and `comment` headers
 
-## Dependencies
-Requires Node.js.
+> Ideal for local NLP classification workflows.
 
-Run `npm install` (or, if you have yarn, `yarn install`) to install the following dependencies:
-- @xenova/transformers: Machine learning transformers
-- commander: CLI interface
-- csvtojson: CSV parsing
-- path: File path handling
-- pino: Logging utilities
+## 📦 Dependencies
 
-## How to Run
-### Generate Embeddings from CSV
-- Ensure you have a training file (e.g. training.csv) that has comment and category headers.
-  - This is your pre-classified data to be used for embeddings
-- In the main directory where index.js sits, run to generate a `embedding.json` file:
+Install with:
+
+```
+npm install
+# or
+yarn install
+```
+
+Uses: `@xenova/transformers`, `csvtojson`, `commander`, `pino`, `path`
+
+## 🛠️ Usage
+
+### 1. Prepare Your CSVs
+
+Input CSV files must include:
+
+- `category`: Label for training data
+- `comment`: Text content to embed or classify
+
+---
+
+### 2. Generate Embeddings
+
+Generate `embedding.json` from labeled CSV:
+
 ```
 node index.js csv-embedding -i ./data/training.csv
 ```
-- Or you can define your own file paths and names for the training csv files.
 
-### Classify new data using trained embeddings
-- Ensure you have filepaths for the following:
-  - csv file with unclassified text under a comment header.
-  - json embedding file generated from CSV
-- In the main directory where index.js sits, run:
+---
+
+### 3. Classify New Text
+
+Use trained embeddings to classify new input:
 
 ```
 node index.js embedding-classification -i ./data/unclassified.csv -c ./data/embedding.json -o ./data/predicted.csv
 ```
-- Or define your own file paths and names.
-- See index.js for all param details. Optionals are all off by default.
 
-## Text Classification Configuration
-- Consider modifying following values:
-  - weightedVotes
-    - Boolean flag, set this to false for a simple majority vote instead of averaged aggregated scores to pick a category
-  - comparisonPercentage
-    - Set anywhere from 0 to 100. Should be set to high to utilize more of the existing embeddings used for comparison
-  - maxSamplesToSearch
-    - Limits max number of samples to compare unclassified queries against. Can impact weightedVote
-  - similarityThresholdPercent
-    - Minimum cosine similarity percentage, further excludes possible comparison samples against unclassified queries. Heavily dependent on model and comparison dataset. Can impact weightedVote.
+> Check configurable flags in `index.js` for more options.
 
-## Potential Contributions / Improvements
-Ideas that can further improve upon this concept include:
-- Better algorithms, data pre-processing
-- Better data management for input / upload
-- Better deployment and example records
+---
+
+## ⚙️ Configure Classification
+
+Tune classification behavior in `embedding-classification.js` with these params:
+
+- `--weightedVotes`  
+  Use averaged similarity scores
+- `--comparisonPercentage`  
+  % of top similar samples to compare (0–100)
+- `--maxSamplesToSearch`  
+  Limit how many samples are compared
+- `--similarityThresholdPercent`  
+  Minimum cosine similarity to include in comparison
+
+---
+
+## 🌱 Potential Contributions / Improvements
+
+- Enhanced classification & preprocessing algorithms
+- Improved data input/upload flows
+- Deployment & example datasets
+
+---

@@ -1,6 +1,6 @@
 const csv = require('csvtojson');
 const path = require('path');
-const logger = require('../utils/logger');
+const logger = require('./logger');
 
 const parseCsvToJson = async (filePath) => {
   try {

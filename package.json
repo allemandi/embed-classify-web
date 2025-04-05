@@ -1,8 +1,8 @@
 {
-  "name": "cli-word-embedding-classification",
+  "name": "embed-classify-cli",
   "version": "1.0.0",
   "main": "index.js",
-  "repository": "https://github.com/allemandi/cli-word-embedding-classification.git",
+  "repository": "https://github.com/allemandi/embed-classify-cli.git",
   "author": "Daniel Lam",
   "license": "MIT",
   "scripts": {

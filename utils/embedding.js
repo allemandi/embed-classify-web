@@ -7,7 +7,6 @@ const createEmbeddings = async (textArr) => {
   if (!Array.isArray(textArr) || textArr.length === 0) {
     throw new Error('Input must be a non-empty array of strings');
   }
-
   try {
     // Cache the pipeline instance
     if (!createEmbeddings.extractor) {
