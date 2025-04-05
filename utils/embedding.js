@@ -45,9 +45,9 @@ const createEmbeddings = async (textArr) => {
   }
 };
 
-const rankChunksBySimilarity = async (
+const rankSamplesBySimilarity = async (
   searchQuery,
-  chunks,
+  samples,
   maxResults = 10,
   similarityThresholdPercent = 40
 ) => {
@@ -72,35 +72,35 @@ const rankChunksBySimilarity = async (
     const queryMagnitude = Math.sqrt(
       queryEmbedding.reduce((sum, val) => sum + val * val, 0)
     );
-    const rankedChunks = chunks
-      .map((chunk) => {
+    const rankedSamples = samples
+      .map((sample) => {
         // Calculate cosine similarity more efficiently
-        const dotProduct = chunk.embedding.reduce(
+        const dotProduct = sample.embedding.reduce(
           (sum, val, i) => sum + val * queryEmbedding[i],
           0
         );
-        const chunkMagnitude = Math.sqrt(
-          chunk.embedding.reduce((sum, val) => sum + val * val, 0)
+        const sampleMagnitude = Math.sqrt(
+          sample.embedding.reduce((sum, val) => sum + val * val, 0)
         );
-        const similarity = dotProduct / (chunkMagnitude * queryMagnitude);
+        const similarity = dotProduct / (sampleMagnitude * queryMagnitude);
 
         return {
-          ...chunk,
+          ...sample,
           score: similarity,
         };
       })
-      .filter((chunk) => chunk.score > similarityThreshold)
+      .filter((sample) => sample.score > similarityThreshold)
       .sort((a, b) => b.score - a.score)
       .slice(0, maxResults);
 
-    return rankedChunks;
+    return rankedSamples;
   } catch (error) {
-    logger.error('Error ranking chunks by similarity:', error);
+    logger.error('Error ranking samples by similarity:', error);
     return [];
   }
 };
 
 module.exports = {
   createEmbeddings,
-  rankChunksBySimilarity,
+  rankSamplesBySimilarity,
 };

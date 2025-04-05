@@ -30,9 +30,10 @@ program
     '-o, --outputFile <filepath>',
     'must have a file path to write predicted results'
   )
+  .option('-r, --resultMetrics <boolean>', 'set true to add metrics to outputFile')
   .option('-e, --evaluteModel <boolean>', 'set true to run evaluation for comparison dataset')
   .action(async (cmdObj) => {
-    await embeddingClassification(cmdObj.inputFile, cmdObj.comparisonFile, cmdObj.outputFile, cmdObj.evaluteModel);
+    await embeddingClassification(cmdObj.inputFile, cmdObj.comparisonFile, cmdObj.outputFile, cmdObj.resultMetrics, cmdObj.evaluteModel);
   });
 
 program.parseAsync(process.argv);

@@ -1,9 +1,9 @@
 const { parseCsvToJson } = require('../utils/csv');
 const logger = require('../utils/logger');
 const fs = require('fs');
-const { rankChunksBySimilarity } = require('../utils/embedding');
+const { rankSamplesBySimilarity } = require('../utils/embedding');
 const {
-  returnMostFrequentElement,
+  resolveBestCategory,
   calculateMetrics,
 } = require('../utils/stats');
 const { sanitizeText, formatCSVRow } = require('../utils/sanitizer');
@@ -12,15 +12,19 @@ const embeddingClassification = async (
   inputFile,
   comparisonFile,
   outputFile,
+  resultMetrics,
   evaluateModel,
 ) => {
-  const trainingPercentage = 90;
-  const chunksToSearch = 15;
+  const weightedVotes = true;
+  const comparisonPercentage = 80;
+  const maxSamplesToSearch = 40;
   // cosine similarity
-  const similarityThresholdPercent = 50;
+  const similarityThresholdPercent = 30;
   const csvHeaderStrings = {
     category: 'category',
     comment: 'comment',
+    nearestCosineScore: 'nearest_cosine_score',
+    similarSamplesCount: 'similar_samples_count',
   };
 
   const jsonFile = await fs.promises.readFile(
@@ -33,36 +37,34 @@ const embeddingClassification = async (
   );
 
   const jsonData = JSON.parse(jsonFile);
+  logger.info(`Fetching ${jsonData.length} samples from comparison set`)
 
   logger.info(
-    `Now randomizing JSON dataset. Reserving ${100 - trainingPercentage}% of original dataset as test samples.`
+    `Randomizing dataset.`
   );
   const randomizedEmbeddingArray = jsonData.sort(() => Math.random() - 0.5);
 
   const originalEmbeddingLength = randomizedEmbeddingArray.length;
-  const majorityIndex = Math.floor(
-    (originalEmbeddingLength - 1) * (trainingPercentage / 100)
+  // split random set based on index
+  const majorityIndex = Math.round(originalEmbeddingLength * (comparisonPercentage / 100));
+
+  const comparisonData = randomizedEmbeddingArray.slice(0, majorityIndex);
+  logger.info(
+    `Reserving ${comparisonPercentage}% (${comparisonData.length}) of original dataset to compare.`
   );
-
-  const evaluateArray = randomizedEmbeddingArray.slice(majorityIndex);
-  jsonData.splice(majorityIndex);
-
   if (evaluateModel === 'true') {
+    const evaluateData = randomizedEmbeddingArray.slice(majorityIndex);
     // Evaluation logic
-    logger.info('Starting model evaluation preview.');
+    logger.info(`Starting model evaluation preview using remaining ${100 - comparisonPercentage}% (${evaluateData.length}) of samples.`);
     const evaluationResults = await Promise.all(
-      evaluateArray.map(async (item) => {
-        const searchResults = await rankChunksBySimilarity(
+      evaluateData.map(async (item) => {
+        const searchResults = await rankSamplesBySimilarity(
           item.text,
-          jsonData,
-          chunksToSearch,
+          comparisonData,
+          maxSamplesToSearch,
           similarityThresholdPercent
         );
-        const predictedCategoryArray = searchResults.map(
-          (result) => result.category
-        );
-        const predictedCategory =
-          (await returnMostFrequentElement(predictedCategoryArray)) || '???';
+        const predictedCategory = resolveBestCategory(searchResults, weightedVotes) || '???';
         const confidence = searchResults.length > 0 ? searchResults[0].score : 0;
 
         return {
@@ -73,9 +75,9 @@ const embeddingClassification = async (
         };
       })
     );
-    
+
     // Calculate and display metrics
-    const metrics = calculateMetrics(evaluationResults, evaluateArray);
+    const metrics = calculateMetrics(evaluationResults, evaluateData);
 
     logger.info('\n=== Model Evaluation Results ===');
     logger.info(`Total Test Samples: ${metrics.totalPredictions}`);
@@ -111,34 +113,50 @@ const embeddingClassification = async (
   const outputArr = await Promise.all(
     comments.map(async (text, i) => {
       const sanitizedText = sanitizeText(text);
-      const searchResults = await rankChunksBySimilarity(
+      const searchResults = await rankSamplesBySimilarity(
         sanitizedText,
-        jsonData,
-        chunksToSearch,
+        comparisonData,
+        maxSamplesToSearch,
         similarityThresholdPercent
       );
-      const predictedCategoryArray = searchResults.map((text) => text.category);
-      const predictedCategory =
-        (await returnMostFrequentElement(predictedCategoryArray)) || '???';
+      const predictedCategory = resolveBestCategory(searchResults, weightedVotes) || '???';
+      const nearestCosineScore = searchResults.length > 0 ? searchResults[0].score : 0;
+
       return {
         text: sanitizedText,
         category: predictedCategory,
+        nearestCosineScore: nearestCosineScore,
+        similarSamplesCount: searchResults.length,
       };
     })
+
   );
 
   const outputString = [
-    formatCSVRow([csvHeaderStrings.category, csvHeaderStrings.comment]),
-    ...outputArr.map(i => formatCSVRow([i.category, i.text]))
+    resultMetrics === 'true'
+      ? formatCSVRow([
+        csvHeaderStrings.category,
+        csvHeaderStrings.comment,
+        csvHeaderStrings.nearestCosineScore,
+        csvHeaderStrings.similarSamplesCount,
+      ])
+      : formatCSVRow([csvHeaderStrings.category, csvHeaderStrings.comment]),
+    ...outputArr.map(i =>
+      resultMetrics === 'true'
+        ? formatCSVRow([
+          i.category,
+          i.text,
+          (i.nearestCosineScore * 100).toFixed(2), // Fix: was using i.confidence
+          i.similarSamplesCount, // Fix: was using i.similarMatches
+        ])
+        : formatCSVRow([i.category, i.text])
+    ),
   ].join('\n');
-  
-  logger.info(outputFile)
+
   // Write to output file
   await fs.promises.writeFile(outputFile, outputString);
-  
+
   // Log results after file write
-  logger.info('\n=== Classification Results ===');
-  logger.info(outputString);
   logger.info(`\nResults have been written to ${outputFile}`);
 };
 

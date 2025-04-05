@@ -1,16 +1,43 @@
-const returnMostFrequentElement = async (input) => {
-  const map = new Map();
+// Selects best category either weighted averages in each category or simple majority voting.
+const resolveBestCategory = (predictions, weighted = false) => {
+  if (!Array.isArray(predictions) || predictions.length === 0) return '';
+
+  if (weighted) {
+    const categoryStats = new Map();
+    for (const { category, score = 0 } of predictions) {
+      const current = categoryStats.get(category);
+      if (current) {
+        current.sum += score;
+        current.count += 1;
+      } else {
+        categoryStats.set(category, { sum: score, count: 1 });
+      }
+    }
+    return Array.from(categoryStats.entries()).reduce(
+      (best, [category, { sum, count }]) => {
+        const avg = sum / count;
+        return avg > best.avg ? { category, avg } : best;
+      },
+      { category: '', avg: -Infinity }
+    ).category;
+  }
+
+  // Majority vote handling
+  const categoryCounts = new Map();
   let maxCount = 0;
-  let mostFrequentElement = '';
-  for (const element of input) {
-    const count = (map.get(element) || 0) + 1;
-    map.set(element, count);
-    if (count > maxCount) {
-      maxCount = count;
-      mostFrequentElement = element;
+  let bestCategory = '';
+
+  for (const { category } of predictions) {
+    const newCount = (categoryCounts.get(category) || 0) + 1;
+    categoryCounts.set(category, newCount);
+
+    if (newCount > maxCount) {
+      maxCount = newCount;
+      bestCategory = category;
     }
   }
-  return mostFrequentElement;
+
+  return bestCategory;
 };
 /**
  * Calculates evaluation metrics by comparing predicted values with actual values.
@@ -117,6 +144,6 @@ const calculateMetrics = (predictions, actuals) => {
 };
 
 module.exports = {
-  returnMostFrequentElement,
+  resolveBestCategory,
   calculateMetrics,
 };
