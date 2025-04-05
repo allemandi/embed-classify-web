@@ -2,10 +2,12 @@
 
 ## Purpose
 Set of CLI scripts that:
-- Read CSV files and convert into files for word embeddings
+- Read CSV files and convert into json files for word embeddings
 - Compare unclassified input against existing word embeddings
-  - Write predicted categories against unclassified input
+  - Writes predicted categories against unclassified input to CSV
   - Optional: Test performance metrics of existing dataset
+
+Generates embeddings locally via [Xenova/all-MiniLM-L6-v2](https://huggingface.co/Xenova/all-MiniLM-L6-v2)
 
 ## CSV Formats
 Training and input CSV files must have the following headers:
@@ -59,4 +61,4 @@ node index.js embedding-classification -i ./data/unclassified.csv -c ./data/embe
 Ideas that can further improve upon this concept include:
 - Better algorithms, data pre-processing
 - Better data management for input / upload
-- Better deployment
+- Better deployment and example records
