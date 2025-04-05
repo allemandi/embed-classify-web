@@ -11,7 +11,8 @@ const { sanitizeText, formatCSVRow } = require('../utils/sanitizer');
 const embeddingClassification = async (
   inputFile,
   comparisonFile,
-  outputFile
+  outputFile,
+  evaluateModel,
 ) => {
   const trainingPercentage = 90;
   const chunksToSearch = 15;
@@ -46,60 +47,63 @@ const embeddingClassification = async (
   const evaluateArray = randomizedEmbeddingArray.slice(majorityIndex);
   jsonData.splice(majorityIndex);
 
-  // TODO switch off/on evaluate feature
-  logger.info('Starting model evaluation preview.');
-  const evaluationResults = await Promise.all(
-    evaluateArray.map(async (item) => {
-      const searchResults = await rankChunksBySimilarity(
-        item.text,
-        jsonData,
-        chunksToSearch,
-        similarityThresholdPercent
-      );
-      const predictedCategoryArray = searchResults.map(
-        (result) => result.category
-      );
-      const predictedCategory =
-        (await returnMostFrequentElement(predictedCategoryArray)) || '???';
-      const confidence = searchResults.length > 0 ? searchResults[0].score : 0;
+  if (evaluateModel === 'true') {
+    // Evaluation logic
+    logger.info('Starting model evaluation preview.');
+    const evaluationResults = await Promise.all(
+      evaluateArray.map(async (item) => {
+        const searchResults = await rankChunksBySimilarity(
+          item.text,
+          jsonData,
+          chunksToSearch,
+          similarityThresholdPercent
+        );
+        const predictedCategoryArray = searchResults.map(
+          (result) => result.category
+        );
+        const predictedCategory =
+          (await returnMostFrequentElement(predictedCategoryArray)) || '???';
+        const confidence = searchResults.length > 0 ? searchResults[0].score : 0;
 
-      return {
-        text: item.text,
-        category: predictedCategory,
-        confidence: confidence,
-        actualCategory: item.category,
-      };
-    })
-  );
-  // Calculate and display metrics
-  const metrics = calculateMetrics(evaluationResults, evaluateArray);
+        return {
+          text: item.text,
+          category: predictedCategory,
+          confidence: confidence,
+          actualCategory: item.category,
+        };
+      })
+    );
+    
+    // Calculate and display metrics
+    const metrics = calculateMetrics(evaluationResults, evaluateArray);
 
-  logger.info('\n=== Model Evaluation Results ===');
-  logger.info(`Total Test Samples: ${metrics.totalPredictions}`);
-  logger.info(`Correct Predictions: ${metrics.correctPredictions}`);
-  logger.info(`Overall Accuracy: ${(metrics.accuracy * 100).toFixed(2)}%`);
-  logger.info(
-    `Average Confidence: ${(metrics.avgConfidence * 100).toFixed(2)}%`
-  );
+    logger.info('\n=== Model Evaluation Results ===');
+    logger.info(`Total Test Samples: ${metrics.totalPredictions}`);
+    logger.info(`Correct Predictions: ${metrics.correctPredictions}`);
+    logger.info(`Overall Accuracy: ${(metrics.accuracy * 100).toFixed(2)}%`);
+    logger.info(
+      `Average Confidence: ${(metrics.avgConfidence * 100).toFixed(2)}%`
+    );
 
-  logger.info('\n=== Category-wise Performance ===');
-  Object.entries(metrics.categoryMetrics).forEach(([category, stats]) => {
-    logger.info(`\nCategory: ${category}`);
-    logger.info(`├─ Predictions: ${stats.predicted}`);
-    logger.info(`├─ Correct: ${stats.correct}`);
-    logger.info(`├─ Actual Occurrences: ${stats.actual}`);
-    const categoryPrecision =
-      stats.predicted > 0
-        ? ((stats.correct / stats.predicted) * 100).toFixed(2)
-        : '0.00';
-    const categoryRecall =
-      stats.actual > 0
-        ? ((stats.correct / stats.actual) * 100).toFixed(2)
-        : '0.00';
-    logger.info(`├─ Precision: ${categoryPrecision}%`);
-    logger.info(`└─ Recall: ${categoryRecall}%`);
-  });
-  logger.info('\n');
+    logger.info('\n=== Category-wise Performance ===');
+    Object.entries(metrics.categoryMetrics).forEach(([category, stats]) => {
+      logger.info(`\nCategory: ${category}`);
+      logger.info(`├─ Predictions: ${stats.predicted}`);
+      logger.info(`├─ Correct: ${stats.correct}`);
+      logger.info(`├─ Actual Occurrences: ${stats.actual}`);
+      const categoryPrecision =
+        stats.predicted > 0
+          ? ((stats.correct / stats.predicted) * 100).toFixed(2)
+          : '0.00';
+      const categoryRecall =
+        stats.actual > 0
+          ? ((stats.correct / stats.actual) * 100).toFixed(2)
+          : '0.00';
+      logger.info(`├─ Precision: ${categoryPrecision}%`);
+      logger.info(`└─ Recall: ${categoryRecall}%`);
+    });
+    logger.info('\n');
+  }
 
   const inputData = await parseCsvToJson(inputFile);
   const comments = inputData.map((i) => i.comment);
