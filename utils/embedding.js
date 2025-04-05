@@ -27,7 +27,7 @@ const createEmbeddings = async (textArr) => {
     }
 
     const embeddingOutput = embedding.tolist();
-    
+
     if (!Array.isArray(embeddingOutput) || embeddingOutput.length === 0) {
       throw new Error('Invalid embedding output');
     }
@@ -36,20 +36,24 @@ const createEmbeddings = async (textArr) => {
       text,
       embedding: embeddingOutput[i],
     }));
-
   } catch (error) {
     logger.error('Error creating embeddings:', error);
-    return textArr.map(text => ({
+    return textArr.map((text) => ({
       text,
-      embedding: []
+      embedding: [],
     }));
   }
-}
+};
 
-const rankChunksBySimilarity = async (searchQuery, chunks, maxResults = 10, similarityThresholdPercent = 40) => {
+const rankChunksBySimilarity = async (
+  searchQuery,
+  chunks,
+  maxResults = 10,
+  similarityThresholdPercent = 40
+) => {
   try {
     const queryArray = Array.isArray(searchQuery) ? searchQuery : [searchQuery];
-    if (!queryArray.every(query => typeof query === 'string')) {
+    if (!queryArray.every((query) => typeof query === 'string')) {
       throw new Error('Search query must be a string or array of strings');
     }
 
@@ -60,30 +64,36 @@ const rankChunksBySimilarity = async (searchQuery, chunks, maxResults = 10, simi
     }
 
     const queryEmbedding = searchQueryResponse[0].embedding;
- 
+
     // Convert percentage to decimal for comparison
     const similarityThreshold = similarityThresholdPercent / 100;
 
     // Pre-calculate query embedding magnitude for performance
-    const queryMagnitude = Math.sqrt(queryEmbedding.reduce((sum, val) => sum + val * val, 0));
+    const queryMagnitude = Math.sqrt(
+      queryEmbedding.reduce((sum, val) => sum + val * val, 0)
+    );
     const rankedChunks = chunks
-      .map(chunk => {
+      .map((chunk) => {
         // Calculate cosine similarity more efficiently
-        const dotProduct = chunk.embedding.reduce((sum, val, i) => sum + val * queryEmbedding[i], 0);
-        const chunkMagnitude = Math.sqrt(chunk.embedding.reduce((sum, val) => sum + val * val, 0));
+        const dotProduct = chunk.embedding.reduce(
+          (sum, val, i) => sum + val * queryEmbedding[i],
+          0
+        );
+        const chunkMagnitude = Math.sqrt(
+          chunk.embedding.reduce((sum, val) => sum + val * val, 0)
+        );
         const similarity = dotProduct / (chunkMagnitude * queryMagnitude);
 
         return {
           ...chunk,
-          score: similarity
+          score: similarity,
         };
       })
-      .filter(chunk => chunk.score > similarityThreshold)
+      .filter((chunk) => chunk.score > similarityThreshold)
       .sort((a, b) => b.score - a.score)
       .slice(0, maxResults);
 
     return rankedChunks;
-
   } catch (error) {
     logger.error('Error ranking chunks by similarity:', error);
     return [];

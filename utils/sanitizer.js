@@ -2,7 +2,6 @@ const logger = require('./logger');
 
 // Regex patterns
 const WHITESPACE_REGEX = /\s+/g;
-const QUOTE_REGEX = /[''""]/g;
 
 // Normalizes whitespace in text
 const normalizeWhitespace = (text) => {
@@ -13,7 +12,31 @@ const normalizeWhitespace = (text) => {
 // Standardizes different types of quotes
 const standardizeQuotes = (text) => {
   if (!text) return '';
-  return text.replace(QUOTE_REGEX, '"');
+  // Convert all quotes (single, double, curly) to single quotes
+  return text.replace(/['"''""]/g, "'");
+};
+
+// Prepare text for CSV field (without wrapping)
+const prepareCSVContent = (text) => {
+  if (!text) return '';
+  return text.replace(/\r?\n/g, ' '); // Replace newlines with spaces
+};
+
+// Prepare and wrap CSV field if needed
+const prepareCSVField = (field) => {
+  if (!field) return '';
+  const sanitized = standardizeQuotes(String(field));
+  const prepared = prepareCSVContent(sanitized);
+  // Wrap in quotes if contains comma or single quote
+  return /[,']/.test(prepared) ? `"${prepared}"` : prepared;
+};
+
+// Format array of values into CSV row
+const formatCSVRow = (values) => {
+  if (!Array.isArray(values)) {
+    return '';
+  }
+  return values.map(prepareCSVField).join(',');
 };
 
 // Main sanitization function
@@ -31,7 +54,7 @@ const sanitizeText = (text) => {
   }
 };
 
- // Batch sanitize an array of texts
+// Batch sanitize an array of texts
 const batchSanitize = (texts) => {
   if (!Array.isArray(texts)) {
     logger.error('Invalid input: expected array of texts');
@@ -52,4 +75,7 @@ module.exports = {
   standardizeQuotes,
   sanitizeText,
   batchSanitize,
+  prepareCSVContent,
+  prepareCSVField,
+  formatCSVRow,
 };

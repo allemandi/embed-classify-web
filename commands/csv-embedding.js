@@ -1,7 +1,7 @@
 const logger = require('../utils/logger');
 const fs = require('fs');
 const { processCsvForEmbedding } = require('../utils/csv');
-const { createEmbeddings } = require('../utils/embedding')
+const { createEmbeddings } = require('../utils/embedding');
 const { sanitizeText } = require('../utils/sanitizer');
 
 const csvEmbedding = async (inputFile) => {
@@ -32,7 +32,7 @@ const csvEmbedding = async (inputFile) => {
   const classifiedEmbeddings = embeddings.map((item, index) => ({
     category: trainingData.category[index],
     ...item,
-  }))
+  }));
   results = JSON.stringify(classifiedEmbeddings);
   await fs.promises.writeFile('data/embedding.json', results);
   logger.info(`Successfully wrote to json`);

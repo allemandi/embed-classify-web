@@ -15,8 +15,7 @@ program
     await csvEmbedding(cmdObj.inputFile);
   });
 
-
-  program
+program
   .command('embedding-classification')
   .description('classify input csv against existing json')
   .requiredOption(
@@ -27,8 +26,12 @@ program
     '-c, --comparisonFile <filepath>',
     'must have a file path to embedding json'
   )
+  .requiredOption(
+    '-o, --outputFile <filepath>',
+    'must have a file path to write predicted results'
+  )
   .action(async (cmdObj) => {
-    await embeddingClassification(cmdObj.inputFile, cmdObj.comparisonFile);
+    await embeddingClassification(cmdObj.inputFile, cmdObj.comparisonFile, cmdObj.outputFile);
   });
 
 program.parseAsync(process.argv);
