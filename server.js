@@ -123,6 +123,37 @@ app.get('/api/files/csv', (req, res) => {
   }
 });
 
+// Endpoint to get classified data from output CSV
+app.post('/api/classified-data', async (req, res) => {
+  try {
+    const { outputFile } = req.body;
+    
+    if (!outputFile) {
+      return res.status(400).json({ error: 'Output file parameter is required' });
+    }
+    
+    const filePath = path.join(dataDir, outputFile);
+    logger.info(`Reading classified data from: ${filePath}`);
+    
+    if (!fs.existsSync(filePath)) {
+      logger.error(`File does not exist: ${filePath}`);
+      return res.status(404).json({ error: 'Output file not found' });
+    }
+    
+    // Import the CSV parsing utility
+    const { parseCsvToJson } = await import('./utils/csv.js');
+    
+    // Parse the CSV file
+    const jsonData = await parseCsvToJson(filePath);
+    logger.info(`Parsed ${jsonData.length} rows from output file`);
+    
+    res.json(jsonData);
+  } catch (error) {
+    logger.error(`Error reading classified data: ${error.message}`);
+    res.status(500).json({ error: 'Error reading classified data', details: error.message });
+  }
+});
+
 // Handle file upload
 app.post('/upload', upload.single('file'), async (req, res) => {
   try {

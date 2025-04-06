@@ -14,11 +14,19 @@ const classifyButton = document.getElementById('classifyBtn');
 const classificationStatus = document.getElementById('classificationStatus');
 const classificationResults = document.getElementById('classificationResults');
 
+// Prediction elements
+const predictButton = document.getElementById('predictBtn');
+const predictionStatus = document.getElementById('predictionStatus');
+const resultsTableContainer = document.getElementById('resultsTableContainer');
+const resultsTableBody = document.getElementById('resultsTableBody');
+
 // Initialize the application
 function init() {
   // Hide any previous error messages
   statusMessage.style.display = 'none';
   classificationStatus.style.display = 'none';
+  predictionStatus.style.display = 'none';
+  resultsTableContainer.style.display = 'none';
   console.log('Ready to accept CSV files for processing');
   
   // Load JSON files for the embedding dropdown
@@ -26,6 +34,11 @@ function init() {
   
   // Load CSV files for the unclassified dropdown
   loadCsvFiles();
+  
+  // Verify event listeners are properly attached
+  console.log('Event listeners verification:');
+  console.log('- classifyButton element found:', classifyButton !== null);
+  console.log('- predictButton element found:', predictButton !== null);
 }
 
 // Load JSON files for embedding dropdown
@@ -97,6 +110,19 @@ function updateClassifyButtonState() {
   const isEnabled = embeddingSelect.value !== '';
   classifyButton.disabled = !isEnabled;
   console.log(`Classify button ${isEnabled ? 'enabled' : 'disabled'}`);
+  
+  // Also update the predict button state
+  updatePredictButtonState();
+}
+
+// Enable or disable the predict button based on dropdown selections
+function updatePredictButtonState() {
+  const embeddingSelected = embeddingSelect.value !== '';
+  const unclassifiedSelected = unclassifiedSelect.value !== '';
+  const isEnabled = embeddingSelected && unclassifiedSelected;
+  
+  predictButton.disabled = !isEnabled;
+  console.log(`Predict button ${isEnabled ? 'enabled' : 'disabled'}`);
 }
 
 // Prevent default drag behaviors
@@ -126,8 +152,23 @@ embeddingSelect.addEventListener('change', () => {
   updateClassifyButtonState();
 });
 
+// Handle unclassified select change
+unclassifiedSelect.addEventListener('change', () => {
+  console.log('Unclassified file selection changed to:', unclassifiedSelect.value);
+  updatePredictButtonState();
+});
+
 // Handle classify button click
-classifyButton.addEventListener('click', handleClassification);
+classifyButton.addEventListener('click', (e) => {
+  console.log('Classify button clicked!', e);
+  handleClassification();
+});
+
+// Handle predict button click
+predictButton.addEventListener('click', (e) => {
+  console.log('Predict button clicked!', e);
+  handlePrediction();
+});
 
 function preventDefaults(e) {
   e.preventDefault();
@@ -250,6 +291,144 @@ async function handleClassification() {
     classificationStatus.textContent = `Error: ${error.message}`;
   } finally {
     classifyButton.disabled = false;
+  }
+}
+
+// Handle prediction
+async function handlePrediction() {
+  const embeddingFile = embeddingSelect.value;
+  const unclassifiedFile = unclassifiedSelect.value;
+  
+  console.log('Prediction requested:');
+  console.log('- Embedding file:', embeddingFile);
+  console.log('- Unclassified file:', unclassifiedFile);
+  
+  if (!embeddingFile) {
+    predictionStatus.textContent = 'Please select an embedding file';
+    predictionStatus.className = 'error';
+    predictionStatus.style.display = 'block';
+    return;
+  }
+  
+  if (!unclassifiedFile) {
+    predictionStatus.textContent = 'Please select an unclassified file to classify';
+    predictionStatus.className = 'error';
+    predictionStatus.style.display = 'block';
+    return;
+  }
+  
+  try {
+    predictionStatus.textContent = 'Processing classification...';
+    predictionStatus.className = '';
+    predictionStatus.style.display = 'block';
+    predictButton.disabled = true;
+    
+    // Hide the results table while processing
+    resultsTableContainer.style.display = 'none';
+    resultsTableBody.innerHTML = '';
+    
+    console.log('Sending classification request to server...');
+    const response = await fetch('http://localhost:3001/api/classify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        embeddingFile,
+        unclassifiedFile,
+      }),
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Server error response:', errorText);
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const result = await response.json();
+    console.log('Received classification result:', result);
+    
+    predictionStatus.className = 'success';
+    predictionStatus.textContent = 'Classification completed successfully. Fetching results...';
+    
+    // Fetch the classified data from predicted.csv
+    try {
+      const csvResponse = await fetch('http://localhost:3001/api/classified-data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          outputFile: 'predicted.csv'
+        }),
+      });
+      
+      if (!csvResponse.ok) {
+        throw new Error(`Failed to fetch classification results: ${csvResponse.status}`);
+      }
+      
+      const csvData = await csvResponse.json();
+      console.log('Classification results:', csvData);
+      
+      if (csvData && csvData.length > 0) {
+        // Display results in table
+        resultsTableBody.innerHTML = '';
+        
+        csvData.forEach(row => {
+          const tr = document.createElement('tr');
+          
+          // Category column
+          const categoryTd = document.createElement('td');
+          categoryTd.textContent = row.category || 'Unknown';
+          categoryTd.style.padding = '0.75rem';
+          categoryTd.style.border = '1px solid #ddd';
+          tr.appendChild(categoryTd);
+          
+          // Comment column
+          const commentTd = document.createElement('td');
+          commentTd.textContent = row.comment;
+          commentTd.style.padding = '0.75rem';
+          commentTd.style.border = '1px solid #ddd';
+          tr.appendChild(commentTd);
+          
+          // Cosine Score column
+          const scoreTd = document.createElement('td');
+          if (row.nearest_cosine_score) {
+            scoreTd.textContent = `${row.nearest_cosine_score}%`;
+          } else {
+            scoreTd.textContent = 'N/A';
+          }
+          scoreTd.style.padding = '0.75rem';
+          scoreTd.style.border = '1px solid #ddd';
+          tr.appendChild(scoreTd);
+          
+          // Similar Samples column
+          const samplesTd = document.createElement('td');
+          samplesTd.textContent = row.similar_samples_count || 'N/A';
+          samplesTd.style.padding = '0.75rem';
+          samplesTd.style.border = '1px solid #ddd';
+          tr.appendChild(samplesTd);
+          
+          resultsTableBody.appendChild(tr);
+        });
+        
+        // Show the results table
+        resultsTableContainer.style.display = 'block';
+        predictionStatus.textContent = 'Classification completed successfully. Results displayed below.';
+      } else {
+        predictionStatus.textContent = 'Classification completed but no results were returned.';
+      }
+    } catch (error) {
+      console.error('Error fetching classification results:', error);
+      predictionStatus.className = 'error';
+      predictionStatus.textContent = `Error fetching results: ${error.message}`;
+    }
+  } catch (error) {
+    console.error('Classification error:', error);
+    predictionStatus.className = 'error';
+    predictionStatus.textContent = `Error: ${error.message}`;
+  } finally {
+    predictButton.disabled = false;
   }
 }
 
