@@ -119,10 +119,10 @@ app.post('/api/files/delete', (req, res) => {
       return res.status(404).json({ error: 'File not found' });
     }
     
-    // Check if it's a JSON file
-    if (!filePath.endsWith('.json')) {
-      logger.error(`Not a JSON file: ${filePath}`);
-      return res.status(400).json({ error: 'Only JSON files can be deleted using this endpoint' });
+    // Check if it's a JSON or CSV file
+    if (!filePath.endsWith('.json') && !filePath.endsWith('.csv')) {
+      logger.error(`Not a supported file type: ${filePath}`);
+      return res.status(400).json({ error: 'Only JSON and CSV files can be deleted using this endpoint' });
     }
     
     // Delete the file
@@ -157,14 +157,22 @@ app.post('/api/files/rename', (req, res) => {
       return res.status(404).json({ error: 'File not found' });
     }
     
-    // Check if it's a JSON file
-    if (!oldPath.endsWith('.json')) {
-      logger.error(`Not a JSON file: ${oldPath}`);
-      return res.status(400).json({ error: 'Only JSON files can be renamed using this endpoint' });
+    // Check if it's a supported file type (JSON or CSV)
+    const isJsonFile = oldPath.endsWith('.json');
+    const isCsvFile = oldPath.endsWith('.csv');
+    
+    if (!isJsonFile && !isCsvFile) {
+      logger.error(`Not a supported file type: ${oldPath}`);
+      return res.status(400).json({ error: 'Only JSON and CSV files can be renamed using this endpoint' });
     }
     
-    // Ensure newName has .json extension
-    const formattedNewName = newName.endsWith('.json') ? newName : `${newName}.json`;
+    // Ensure newName has the correct extension
+    let formattedNewName;
+    if (isJsonFile) {
+      formattedNewName = newName.endsWith('.json') ? newName : `${newName}.json`;
+    } else {
+      formattedNewName = newName.endsWith('.csv') ? newName : `${newName}.csv`;
+    }
     
     // Create new path with the same directory but new filename
     const dirName = path.dirname(oldPath);
@@ -332,6 +340,107 @@ app.post('/upload', upload.single('file'), async (req, res) => {
     }
   } catch (error) {
     logger.error(`Error in upload handler: ${error.message}`);
+    res.status(500).json({ 
+      error: error.message,
+      details: error.stack
+    });
+  }
+});
+
+// Handle CSV file upload for classification (without creating embeddings)
+app.post('/upload-csv', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      logger.error('No file provided in CSV upload request');
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const filePath = path.join(uploadsDir, req.file.filename);
+    logger.info(`Processing uploaded CSV file: ${filePath} (${req.file.size} bytes)`);
+
+    try {
+      // Check if the file exists
+      if (!fs.existsSync(filePath)) {
+        throw new Error(`Uploaded file not found at ${filePath}`);
+      }
+      
+      // Ensure the data directory exists
+      if (!fs.existsSync(dataDir)) {
+        logger.info(`Creating data directory: ${dataDir}`);
+        fs.mkdirSync(dataDir, { recursive: true });
+      }
+      
+      // Validate that it's a CSV file
+      if (!req.file.originalname.toLowerCase().endsWith('.csv')) {
+        throw new Error('Uploaded file must be a CSV file');
+      }
+      
+      // Import and use the CSV validation utility
+      const { parseCsvToJson } = await import('./utils/csv.js');
+      
+      try {
+        // Validate CSV has required columns
+        const jsonData = await parseCsvToJson(filePath);
+        
+        // Check if the CSV has a 'comment' column
+        const hasCommentColumn = jsonData.length > 0 && Object.keys(jsonData[0]).some(
+          key => key.toLowerCase() === 'comment'
+        );
+        
+        if (!hasCommentColumn) {
+          throw new Error('CSV file must have a "comment" column');
+        }
+        
+        logger.info(`CSV validation successful: ${jsonData.length} rows with required columns`);
+      } catch (csvError) {
+        throw new Error(`CSV validation failed: ${csvError.message}`);
+      }
+      
+      // Copy the file to the data directory with the original filename
+      const destinationPath = path.join(dataDir, req.file.originalname);
+      
+      // If a file with the same name already exists, use a unique name
+      let finalPath = destinationPath;
+      if (fs.existsSync(destinationPath)) {
+        const fileNameWithoutExt = path.basename(req.file.originalname, '.csv');
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        finalPath = path.join(dataDir, `${fileNameWithoutExt}-${timestamp}.csv`);
+      }
+      
+      fs.copyFileSync(filePath, finalPath);
+      logger.info(`CSV file copied to data directory: ${finalPath}`);
+      
+      const stats = fs.statSync(finalPath);
+      
+      res.json({ 
+        success: true,
+        message: 'CSV file uploaded successfully and ready for classification.',
+        fileName: path.basename(finalPath),
+        fileSize: stats.size,
+        lastModified: stats.mtime
+      });
+
+      // Clean up uploaded file
+      fs.unlinkSync(filePath);
+      logger.info(`Cleaned up temporary uploaded file: ${filePath}`);
+    } catch (error) {
+      logger.error(`Error processing CSV file: ${error.message}`);
+      logger.error(error.stack);
+      
+      // If file still exists, try to clean it up
+      if (fs.existsSync(filePath)) {
+        try {
+          fs.unlinkSync(filePath);
+          logger.info(`Cleaned up uploaded file after error: ${filePath}`);
+        } catch (cleanupErr) {
+          logger.error(`Failed to clean up file: ${cleanupErr.message}`);
+        }
+      }
+      
+      throw error;
+    }
+  } catch (error) {
+    logger.error(`Error in CSV upload handler: ${error.message}`);
     res.status(500).json({ 
       error: error.message,
       details: error.stack

@@ -65,6 +65,7 @@ const App = () => {
   
   // App state
   const [fileToUpload, setFileToUpload] = useState(null);
+  const [classifyCsvToUpload, setClassifyCsvToUpload] = useState(null);
   const [uploadStatus, setUploadStatus] = useState({ show: false, message: '', severity: 'info' });
   const [evaluateStatus, setEvaluateStatus] = useState({ show: false, message: '', severity: 'info' });
   const [classifyStatus, setClassifyStatus] = useState({ show: false, message: '', severity: 'info' });
@@ -73,6 +74,8 @@ const App = () => {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [editingFile, setEditingFile] = useState(null);
   const [editFileName, setEditFileName] = useState('');
+  const [editingCsvFile, setEditingCsvFile] = useState(null);
+  const [editCsvFileName, setEditCsvFileName] = useState('');
   const [newFileName, setNewFileName] = useState('');
   const [fileToRename, setFileToRename] = useState(null);
   
@@ -84,6 +87,7 @@ const App = () => {
   const [selectedCsvFile, setSelectedCsvFile] = useState('');
   const [evaluationResults, setEvaluationResults] = useState('');
   const [classificationResults, setClassificationResults] = useState([]);
+  const [classifyCsvStatus, setClassifyCsvStatus] = useState({ show: false, message: '', severity: 'info' });
   
   // Create dynamic theme
   const theme = React.useMemo(
@@ -374,13 +378,27 @@ const App = () => {
     setEditFileName('');
   };
   
-  // Handle file upload
+  // Handle file upload for embeddings
   const handleFileSelected = (event) => {
     const file = event.target.files[0];
     if (file && (file.type === 'text/csv' || file.name.endsWith('.csv'))) {
       setFileToUpload(file);
     } else {
       setUploadStatus({
+        show: true,
+        message: 'Please select a CSV file',
+        severity: 'error'
+      });
+    }
+  };
+  
+  // Handle file upload for classification
+  const handleClassifyCsvSelected = (event) => {
+    const file = event.target.files[0];
+    if (file && (file.type === 'text/csv' || file.name.endsWith('.csv'))) {
+      setClassifyCsvToUpload(file);
+    } else {
+      setClassifyCsvStatus({
         show: true,
         message: 'Please select a CSV file',
         severity: 'error'
@@ -442,6 +460,69 @@ const App = () => {
     } catch (error) {
       console.error('Upload error:', error);
       setUploadStatus({
+        show: true,
+        message: `Error: ${error.message}`,
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Handle upload file for classification
+  const handleUploadClassifyCsv = async () => {
+    if (!classifyCsvToUpload) {
+      setClassifyCsvStatus({
+        show: true,
+        message: 'Please select a file first',
+        severity: 'error'
+      });
+      return;
+    }
+    
+    const formData = new FormData();
+    formData.append('file', classifyCsvToUpload);
+    
+    try {
+      setClassifyCsvStatus({
+        show: true,
+        message: 'Uploading CSV file...',
+        severity: 'info'
+      });
+      setLoading(true);
+      
+      const response = await fetch('http://localhost:3001/upload-csv', {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Server error response:', errorText);
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      console.log('Upload CSV response:', result);
+      
+      setClassifyCsvStatus({
+        show: true,
+        message: result.message || 'CSV file uploaded successfully',
+        severity: 'success'
+      });
+      
+      // Reset form
+      setClassifyCsvToUpload(null);
+      document.getElementById('csv-upload').value = '';
+      
+      // Wait briefly to ensure files are fully saved to disk
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Reload file lists
+      await loadCsvFiles();
+    } catch (error) {
+      console.error('Upload CSV error:', error);
+      setClassifyCsvStatus({
         show: true,
         message: `Error: ${error.message}`,
         severity: 'error'
@@ -650,6 +731,133 @@ const App = () => {
     }
   };
   
+  // Delete a CSV file
+  const deleteCsvFile = async (filePath, fileName) => {
+    try {
+      setClassifyCsvStatus({
+        show: true,
+        message: `Deleting ${fileName}...`,
+        severity: 'info'
+      });
+      setLoading(true);
+      
+      const response = await fetch('http://localhost:3001/api/files/delete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          filePath
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Server error response:', errorText);
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      console.log('Delete response:', result);
+      
+      setClassifyCsvStatus({
+        show: true,
+        message: `Successfully deleted ${fileName}`,
+        severity: 'success'
+      });
+      
+      // Reload datasets and dropdowns
+      await loadCsvFiles();
+    } catch (error) {
+      console.error('Error deleting CSV file:', error);
+      setClassifyCsvStatus({
+        show: true,
+        message: `Error deleting ${fileName}: ${error.message}`,
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Start editing a CSV file name
+  const startEditingCsv = (file) => {
+    setEditingCsvFile(file.path);
+    // Remove .csv extension for editing but keep it stored internally
+    setEditCsvFileName(file.name.replace(/\.csv$/, ''));
+  };
+  
+  // Cancel editing CSV file
+  const cancelEditingCsv = () => {
+    setEditingCsvFile(null);
+    setEditCsvFileName('');
+  };
+  
+  // Rename a CSV file
+  const renameCsvFile = async (filePath, newName) => {
+    // Ensure newName has .csv extension
+    if (!newName) {
+      setClassifyCsvStatus({
+        show: true,
+        message: 'Please provide a new name',
+        severity: 'warning'
+      });
+      return;
+    }
+    
+    // Ensure the filename has .csv extension
+    const formattedNewName = newName.endsWith('.csv') ? newName : `${newName}.csv`;
+    
+    try {
+      setClassifyCsvStatus({
+        show: true,
+        message: `Renaming CSV file...`,
+        severity: 'info'
+      });
+      setLoading(true);
+      
+      // This uses the same rename API endpoint as JSON files
+      const response = await fetch('http://localhost:3001/api/files/rename', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          oldPath: filePath,
+          newName: formattedNewName
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Server error response:', errorText);
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      await response.json();
+      
+      setClassifyCsvStatus({
+        show: true,
+        message: `Successfully renamed file to ${formattedNewName}`,
+        severity: 'success'
+      });
+      
+      // Reset and reload
+      setEditingCsvFile(null);
+      setEditCsvFileName('');
+      await loadCsvFiles();
+    } catch (error) {
+      console.error('Error renaming CSV file:', error);
+      setClassifyCsvStatus({
+        show: true,
+        message: `Error renaming file: ${error.message}`,
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+  
   // Render tab panels
   
   // Create Embeddings Tab
@@ -660,6 +868,30 @@ const App = () => {
           <UploadIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
           Create Embeddings
         </Typography>
+        
+        <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
+          Upload a CSV file with <strong>category</strong> and <strong>comment</strong> columns to create embeddings.
+        </Typography>
+        
+        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+          <Button 
+            variant="outlined" 
+            size="small"
+            onClick={() => {
+              const csvContent = "category,comment\npositive,This product works great\nnegative,The quality was disappointing";
+              const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+              const link = document.createElement('a');
+              const url = URL.createObjectURL(blob);
+              link.href = url;
+              link.download = 'template.csv';
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            }}
+          >
+            Download Template CSV
+          </Button>
+        </Box>
         
         <Box sx={{ mt: 3, p: 2, border: '2px dashed', borderColor: 'primary.main', borderRadius: 2, textAlign: 'center' }}>
           <input
@@ -686,6 +918,10 @@ const App = () => {
             </Typography>
           )}
         </Box>
+        
+        <Alert severity="info" sx={{ mt: 2, mb: 2 }}>
+          Your CSV file <strong>must</strong> have columns named <code>category</code> and <code>comment</code>.
+        </Alert>
         
         <Button
           variant="contained"
@@ -941,105 +1177,285 @@ const App = () => {
   
   // Classify Tab
   const renderClassifyTab = () => (
-    <Paper elevation={3} sx={{ my: 2, p: 3 }}>
-      <Typography variant="h5" component="h2" gutterBottom>
-        <CategoryIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-        Classify Data
-      </Typography>
-      
-      <Box sx={{ mt: 2 }}>
-        <FormControl fullWidth sx={{ mb: 2 }}>
-          <InputLabel id="classification-model-label">Select Embedding Model</InputLabel>
-          <Select
-            labelId="classification-model-label"
-            value={selectedClassificationModel}
-            onChange={(e) => setSelectedClassificationModel(e.target.value)}
-            label="Select Embedding Model"
-            disabled={loading}
-          >
-            <MenuItem value="">
-              <em>Select a model...</em>
-            </MenuItem>
-            {embeddingFiles.map((file) => (
-              <MenuItem key={file.path} value={file.path}>
-                {file.name}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+    <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3, mt: 2 }}>
+      <Paper elevation={3} sx={{ my: 2, p: 3, flex: 2 }}>
+        <Typography variant="h5" component="h2" gutterBottom>
+          <CategoryIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+          Classify Data
+        </Typography>
         
-        <FormControl fullWidth sx={{ mb: 2 }}>
-          <InputLabel id="unclassified-file-label">Select Unclassified CSV</InputLabel>
-          <Select
-            labelId="unclassified-file-label"
-            value={selectedCsvFile}
-            onChange={(e) => setSelectedCsvFile(e.target.value)}
-            label="Select Unclassified CSV"
-            disabled={loading}
-          >
-            <MenuItem value="">
-              <em>Select a CSV file...</em>
-            </MenuItem>
-            {csvFiles.map((file) => (
-              <MenuItem key={file.path} value={file.path}>
-                {file.name}
+        <Box sx={{ mt: 2 }}>
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel id="classification-model-label">Select Embedding Model</InputLabel>
+            <Select
+              labelId="classification-model-label"
+              value={selectedClassificationModel}
+              onChange={(e) => setSelectedClassificationModel(e.target.value)}
+              label="Select Embedding Model"
+              disabled={loading}
+            >
+              <MenuItem value="">
+                <em>Select a model...</em>
               </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+              {embeddingFiles.map((file) => (
+                <MenuItem key={file.path} value={file.path}>
+                  {file.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel id="unclassified-file-label">Select Unclassified CSV</InputLabel>
+            <Select
+              labelId="unclassified-file-label"
+              value={selectedCsvFile}
+              onChange={(e) => setSelectedCsvFile(e.target.value)}
+              label="Select Unclassified CSV"
+              disabled={loading}
+            >
+              <MenuItem value="">
+                <em>Select a CSV file...</em>
+              </MenuItem>
+              {csvFiles.map((file) => (
+                <MenuItem key={file.path} value={file.path}>
+                  {file.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          
+          <Button
+            variant="contained"
+            color="success"
+            disabled={!selectedClassificationModel || !selectedCsvFile || loading}
+            onClick={handleClassifyData}
+            fullWidth
+            sx={{ mt: 2 }}
+            startIcon={loading ? <CircularProgress size={24} /> : <CategoryIcon />}
+          >
+            {loading ? 'Classifying...' : 'Classify Data'}
+          </Button>
+        </Box>
         
-        <Button
-          variant="contained"
-          color="success"
-          disabled={!selectedClassificationModel || !selectedCsvFile || loading}
-          onClick={handleClassifyData}
-          fullWidth
-          sx={{ mt: 2 }}
-          startIcon={loading ? <CircularProgress size={24} /> : <CategoryIcon />}
-        >
-          {loading ? 'Classifying...' : 'Classify Data'}
-        </Button>
-      </Box>
-      
-      {classifyStatus.show && (
-        <Alert severity={classifyStatus.severity} sx={{ mt: 2, mb: 3 }}>
-          {classifyStatus.message}
-        </Alert>
-      )}
-      
-      {classificationResults.length > 0 && (
-        <Box sx={{ mt: 3 }}>
-          <Typography variant="h6" gutterBottom>
-            Classification Results
+        {classifyStatus.show && (
+          <Alert severity={classifyStatus.severity} sx={{ mt: 2, mb: 3 }}>
+            {classifyStatus.message}
+          </Alert>
+        )}
+        
+        {classificationResults.length > 0 && (
+          <Box sx={{ mt: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Classification Results
+            </Typography>
+            
+            <TableContainer component={Paper} sx={{ maxHeight: 440 }}>
+              <Table stickyHeader aria-label="classification results table" size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Category</TableCell>
+                    <TableCell>Comment</TableCell>
+                    <TableCell align="right">Cosine Score</TableCell>
+                    <TableCell align="right">Similar Samples</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {classificationResults.map((row, index) => (
+                    <TableRow key={index} hover>
+                      <TableCell component="th" scope="row">
+                        {row.category || 'Unknown'}
+                      </TableCell>
+                      <TableCell>{row.comment}</TableCell>
+                      <TableCell align="right">{row.nearest_cosine_score ? `${row.nearest_cosine_score}%` : 'N/A'}</TableCell>
+                      <TableCell align="right">{row.similar_samples_count || 'N/A'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Box>
+        )}
+      </Paper>
+
+      {/* CSV Management Panel */}
+      <Card sx={{ flex: 1, my: 2, height: 'fit-content' }}>
+        <CardContent>
+          <Typography variant="h5" component="h2" gutterBottom>
+            <DatasetIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+            Manage CSV Files
+          </Typography>
+
+          <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
+            Upload a CSV file with at least a <strong>comment</strong> column to classify.
           </Typography>
           
-          <TableContainer component={Paper} sx={{ maxHeight: 440 }}>
-            <Table stickyHeader aria-label="classification results table" size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Category</TableCell>
-                  <TableCell>Comment</TableCell>
-                  <TableCell align="right">Cosine Score</TableCell>
-                  <TableCell align="right">Similar Samples</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {classificationResults.map((row, index) => (
-                  <TableRow key={index} hover>
-                    <TableCell component="th" scope="row">
-                      {row.category || 'Unknown'}
-                    </TableCell>
-                    <TableCell>{row.comment}</TableCell>
-                    <TableCell align="right">{row.nearest_cosine_score ? `${row.nearest_cosine_score}%` : 'N/A'}</TableCell>
-                    <TableCell align="right">{row.similar_samples_count || 'N/A'}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Box>
-      )}
-    </Paper>
+          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+            <Button 
+              variant="outlined" 
+              size="small"
+              onClick={() => {
+                const csvContent = "comment\nThis product is amazing\nThe service was terrible\nI'm not sure how I feel about it";
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+                link.href = url;
+                link.download = 'unclassified_template.csv';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              }}
+            >
+              Download Template CSV
+            </Button>
+          </Box>
+          
+          <Box sx={{ mt: 3, p: 2, border: '2px dashed', borderColor: 'primary.main', borderRadius: 2, textAlign: 'center' }}>
+            <input
+              accept=".csv"
+              style={{ display: 'none' }}
+              id="csv-upload"
+              type="file"
+              onChange={handleClassifyCsvSelected}
+            />
+            <label htmlFor="csv-upload">
+              <Button 
+                variant="contained" 
+                component="span" 
+                startIcon={<UploadIcon />}
+                fullWidth
+              >
+                Choose CSV File
+              </Button>
+            </label>
+            
+            {classifyCsvToUpload && (
+              <Typography variant="body2" sx={{ mt: 2 }}>
+                Selected file: {classifyCsvToUpload.name}
+              </Typography>
+            )}
+          </Box>
+          
+          <Alert severity="info" sx={{ mt: 2, mb: 2 }}>
+            Your CSV file <strong>must</strong> have a <code>comment</code> column.
+          </Alert>
+          
+          <Button
+            variant="contained"
+            color="primary"
+            disabled={!classifyCsvToUpload || loading}
+            onClick={handleUploadClassifyCsv}
+            fullWidth
+            sx={{ mt: 2 }}
+            startIcon={loading ? <CircularProgress size={24} /> : null}
+          >
+            {loading ? 'Processing...' : 'Upload CSV'}
+          </Button>
+          
+          {classifyCsvStatus.show && (
+            <Alert severity={classifyCsvStatus.severity} sx={{ mt: 2 }}>
+              {classifyCsvStatus.message}
+            </Alert>
+          )}
+          
+          <Divider sx={{ my: 3 }} />
+          
+          <Typography variant="h6" gutterBottom>
+            Available CSV Files
+          </Typography>
+          
+          <List sx={{ bgcolor: 'background.paper', borderRadius: 1, maxHeight: 250, overflow: 'auto' }}>
+            {csvFiles.length === 0 ? (
+              <ListItem>
+                <ListItemText primary="No CSV files available" />
+              </ListItem>
+            ) : (
+              csvFiles.map((file, index) => {
+                const isEditing = editingCsvFile === file.path;
+                
+                return (
+                  <React.Fragment key={file.path}>
+                    {index > 0 && <Divider />}
+                    <ListItem>
+                      {isEditing ? (
+                        <TextField
+                          value={editCsvFileName}
+                          onChange={(e) => setEditCsvFileName(e.target.value)}
+                          variant="standard"
+                          autoFocus
+                          fullWidth
+                          sx={{ mr: 11 }}
+                          disabled={loading}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter' && editCsvFileName.trim()) {
+                              renameCsvFile(file.path, editCsvFileName);
+                            }
+                          }}
+                          helperText=".csv will be added automatically"
+                          placeholder="Enter file name without extension"
+                        />
+                      ) : (
+                        <ListItemText 
+                          primary={file.name} 
+                          secondary={`Modified: ${new Date(file.modified).toLocaleString()}`} 
+                        />
+                      )}
+                      
+                      <ListItemSecondaryAction>
+                        {isEditing ? (
+                          <>
+                            <IconButton 
+                              edge="end" 
+                              aria-label="save"
+                              onClick={() => renameCsvFile(file.path, editCsvFileName)}
+                              disabled={loading || !editCsvFileName.trim()}
+                              color="primary"
+                              sx={{ mr: 1 }}
+                            >
+                              <SaveIcon />
+                            </IconButton>
+                            <IconButton 
+                              edge="end" 
+                              aria-label="cancel"
+                              onClick={cancelEditingCsv}
+                              disabled={loading}
+                            >
+                              <CancelIcon />
+                            </IconButton>
+                          </>
+                        ) : (
+                          <>
+                            <IconButton 
+                              edge="end" 
+                              aria-label="edit"
+                              onClick={() => startEditingCsv(file)}
+                              disabled={loading || isEditing}
+                              color="primary"
+                              sx={{ mr: 1 }}
+                            >
+                              <EditIcon />
+                            </IconButton>
+                            <IconButton 
+                              edge="end" 
+                              aria-label="delete"
+                              onClick={() => deleteCsvFile(file.path, file.name)}
+                              disabled={loading}
+                              color="error"
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          </>
+                        )}
+                      </ListItemSecondaryAction>
+                    </ListItem>
+                  </React.Fragment>
+                );
+              })
+            )}
+          </List>
+        </CardContent>
+      </Card>
+    </Box>
   );
   
   return (
