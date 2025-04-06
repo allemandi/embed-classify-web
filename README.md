@@ -11,10 +11,13 @@ A sleek, modern web app for text classification using embeddings.
 - 🌗 Dark/light mode
 
 ## Quick Start
+
 Install dependencies
+
 - `yarn install`
 
 Run application
+
 - `yarn start`
 
 Visit `http://localhost:3000` in your browser.

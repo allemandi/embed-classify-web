@@ -4,4 +4,4 @@
 import './main.jsx';
 
 // This file is intentionally minimal to just redirect to the main.jsx file
-// which contains the React application code 
+// which contains the React application code

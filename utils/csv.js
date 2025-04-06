@@ -20,7 +20,11 @@ export const parseCsvToJson = async (filePath) => {
   }
 };
 
-export const processCsvForEmbedding = async (filePath, categoryColumn, textColumn) => {
+export const processCsvForEmbedding = async (
+  filePath,
+  categoryColumn,
+  textColumn
+) => {
   try {
     logger.info(
       `Processing CSV for embedding with category: ${categoryColumn}, text: ${textColumn}`

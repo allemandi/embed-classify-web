@@ -9,7 +9,9 @@ let embeddingExtractor = null;
 // Initialize the model asynchronously
 const initializeModel = async () => {
   if (!embeddingExtractor) {
-    logger.info('Initializing the embedding model (Xenova/all-MiniLM-L6-v2)...');
+    logger.info(
+      'Initializing the embedding model (Xenova/all-MiniLM-L6-v2)...'
+    );
     try {
       embeddingExtractor = await pipeline(
         'feature-extraction',
@@ -29,17 +31,17 @@ const createEmbeddings = async (textArr) => {
   if (!Array.isArray(textArr) || textArr.length === 0) {
     throw new Error('Input must be a non-empty array of strings');
   }
-  
+
   logger.info(`Creating embeddings for ${textArr.length} text items`);
-  
+
   try {
     // Initialize the model if not already done
     const extractor = await initializeModel();
-    
+
     if (!extractor) {
       throw new Error('Failed to initialize embedding model');
     }
-    
+
     logger.info('Running embedding extraction...');
     const embedding = await extractor(textArr, {
       pooling: 'mean',
@@ -55,8 +57,10 @@ const createEmbeddings = async (textArr) => {
     if (!Array.isArray(embeddingOutput) || embeddingOutput.length === 0) {
       throw new Error('Invalid embedding output from model');
     }
-    
-    logger.info(`Successfully created embeddings for ${embeddingOutput.length} items`);
+
+    logger.info(
+      `Successfully created embeddings for ${embeddingOutput.length} items`
+    );
 
     return textArr.map((text, i) => ({
       text,
@@ -65,7 +69,7 @@ const createEmbeddings = async (textArr) => {
   } catch (error) {
     logger.error(`Error creating embeddings: ${error.message}`);
     logger.error(error.stack);
-    
+
     // Instead of returning empty embeddings, throw the error to properly handle it upstream
     throw new Error(`Failed to create embeddings: ${error.message}`);
   }
@@ -128,7 +132,7 @@ const rankSamplesBySimilarity = async (
 };
 
 // Initialize the model when the module is loaded
-initializeModel().catch(err => {
+initializeModel().catch((err) => {
   logger.error(`Failed to initialize model on startup: ${err.message}`);
 });
 

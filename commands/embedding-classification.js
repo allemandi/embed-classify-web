@@ -14,10 +14,22 @@ export const embeddingClassification = async (
   configSettings = {}
 ) => {
   // Use configSettings if provided, otherwise use defaults
-  const weightedVotes = configSettings.weightedVotes !== undefined ? configSettings.weightedVotes : true;
-  const comparisonPercentage = configSettings.comparisonPercentage !== undefined ? configSettings.comparisonPercentage : 80;
-  const maxSamplesToSearch = configSettings.maxSamplesToSearch !== undefined ? configSettings.maxSamplesToSearch : 40;
-  const similarityThresholdPercent = configSettings.similarityThresholdPercent !== undefined ? configSettings.similarityThresholdPercent : 30;
+  const weightedVotes =
+    configSettings.weightedVotes !== undefined
+      ? configSettings.weightedVotes
+      : true;
+  const comparisonPercentage =
+    configSettings.comparisonPercentage !== undefined
+      ? configSettings.comparisonPercentage
+      : 80;
+  const maxSamplesToSearch =
+    configSettings.maxSamplesToSearch !== undefined
+      ? configSettings.maxSamplesToSearch
+      : 40;
+  const similarityThresholdPercent =
+    configSettings.similarityThresholdPercent !== undefined
+      ? configSettings.similarityThresholdPercent
+      : 30;
   const csvHeaderStrings = {
     category: 'category',
     comment: 'comment',
@@ -64,7 +76,7 @@ export const embeddingClassification = async (
     // Process evaluation in chunks to prevent memory issues
     const chunkSize = 100;
     const evaluationResults = [];
-    
+
     for (let i = 0; i < evaluateData.length; i += chunkSize) {
       const chunk = evaluateData.slice(i, i + chunkSize);
       const chunkResults = await Promise.all(
@@ -75,7 +87,8 @@ export const embeddingClassification = async (
             maxSamplesToSearch,
             similarityThresholdPercent
           );
-          const predictedCategory = resolveBestCategory(searchResults, weightedVotes) || '???';
+          const predictedCategory =
+            resolveBestCategory(searchResults, weightedVotes) || '???';
           const confidence = searchResults[0]?.score || 0;
 
           return {
@@ -120,15 +133,15 @@ export const embeddingClassification = async (
   }
 
   const inputData = await parseCsvToJson(inputFile);
-  
+
   // Process output in chunks
   const chunkSize = 100;
   const outputArr = [];
-  
+
   for (let i = 0; i < inputData.length; i += chunkSize) {
     const chunk = inputData.slice(i, i + chunkSize);
     const chunkResults = await Promise.all(
-      chunk.map(async ({comment}) => {
+      chunk.map(async ({ comment }) => {
         const sanitizedText = sanitizeText(comment);
         const searchResults = await rankSamplesBySimilarity(
           sanitizedText,
@@ -136,7 +149,8 @@ export const embeddingClassification = async (
           maxSamplesToSearch,
           similarityThresholdPercent
         );
-        const predictedCategory = resolveBestCategory(searchResults, weightedVotes) || '???';
+        const predictedCategory =
+          resolveBestCategory(searchResults, weightedVotes) || '???';
         const nearestCosineScore = searchResults[0]?.score || 0;
 
         return {
