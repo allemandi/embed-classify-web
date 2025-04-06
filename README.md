@@ -1,6 +1,6 @@
-# 📦 embed-classify-cli
+# 📦 embed-classify-web
 
-Node.js CLI tool for local text classification using word embeddings.
+Web application for local text classification using word embeddings.
 
 ## 🚀 Features
 
@@ -8,6 +8,7 @@ Node.js CLI tool for local text classification using word embeddings.
 - 🧠 Classify unlabelled text via pre-trained embeddings
 - 📈 Optional evaluation of dataset performance
 - 🗃️ Works with CSVs containing `category` and `comment` headers
+- 🌐 Web interface for easy usage
 
 > Ideal for local NLP classification workflows.
 
@@ -21,55 +22,36 @@ npm install
 yarn install
 ```
 
-Uses: `@xenova/transformers`, `csvtojson`, `commander`, `pino`, `path`
+Uses: `@xenova/transformers`, `csvtojson`, `express`, `multer`, `vite`, and more.
 
 ## 🛠️ Usage
 
-### 1. Prepare Your CSVs
+### Running the Web Application
 
-Input CSV files must include:
-
-- `category`: Label for training data
-- `comment`: Text content to embed or classify
-
----
-
-### 2. Generate Embeddings
-
-Generate `embedding.json` from labeled CSV:
+Start the web application with:
 
 ```
-node index.js csv-embedding -i ./data/training.csv
+npm start
+# or
+yarn start
 ```
 
----
+This will start both the Vite development server and the backend API server.
 
-### 3. Classify New Text
+### Using the Web Interface
 
-Use trained embeddings to classify new input:
+1. **Create Embeddings**: Upload a CSV file with labeled data to create embeddings
+2. **Evaluate Model**: Select an embedding file to evaluate its performance
+3. **Classify New Data**: Select an embedding file and an unclassified CSV to get predictions
 
-```
-node index.js embedding-classification -i ./data/unclassified.csv -c ./data/embedding.json -o ./data/predicted.csv
-```
+## ⚙️ Classification Parameters
 
-> Check configurable flags in `index.js` for more options.
+The classification parameters are automatically handled through the web interface:
 
----
-
-## ⚙️ Configure Classification
-
-Tune classification behavior in `embedding-classification.js` with these params:
-
-- `--weightedVotes`  
-  Use averaged similarity scores
-- `--comparisonPercentage`  
-  % of top similar samples to compare (0–100)
-- `--maxSamplesToSearch`  
-  Limit how many samples are compared
-- `--similarityThresholdPercent`  
-  Minimum cosine similarity to include in comparison
-
----
+- **Weighted Votes**: Use averaged similarity scores
+- **Comparison Percentage**: % of top similar samples to compare
+- **Max Samples To Search**: Limit how many samples are compared
+- **Similarity Threshold**: Minimum cosine similarity to include
 
 ## 🌱 Potential Contributions / Improvements
 

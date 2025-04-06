@@ -21,7 +21,8 @@ app.use(express.json());
 // Ensure uploads directory exists
 const uploadsDir = path.join(process.cwd(), 'uploads');
 if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir);
+  logger.info(`Creating uploads directory: ${uploadsDir}`);
+  fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
 // Configure multer for file uploads
@@ -78,11 +79,14 @@ app.get('/api/files/json', (req, res) => {
     const files = fs.readdirSync(dataDir)
       .filter(file => file.endsWith('.json'))
       .map(file => {
-        const filePath = path.join(dataDir, file);
-        logger.info(`Found JSON file: ${file}`);
+        const filePath = path.resolve(path.join(dataDir, file));
+        const stats = fs.statSync(filePath);
+        logger.info(`Found JSON file: ${file} (${stats.size} bytes, modified: ${stats.mtime})`);
         return {
           name: file,
-          path: filePath
+          path: filePath,
+          size: stats.size,
+          modified: stats.mtime
         };
       });
 
@@ -107,11 +111,14 @@ app.get('/api/files/csv', (req, res) => {
     const files = fs.readdirSync(dataDir)
       .filter(file => file.endsWith('.csv'))
       .map(file => {
-        const filePath = path.join(dataDir, file);
-        logger.info(`Found CSV file: ${file}`);
+        const filePath = path.resolve(path.join(dataDir, file));
+        const stats = fs.statSync(filePath);
+        logger.info(`Found CSV file: ${file} (${stats.size} bytes, modified: ${stats.mtime})`);
         return {
           name: file,
-          path: filePath
+          path: filePath,
+          size: stats.size,
+          modified: stats.mtime
         };
       });
 
@@ -158,31 +165,82 @@ app.post('/api/classified-data', async (req, res) => {
 app.post('/upload', upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
+      logger.error('No file provided in upload request');
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
     const filePath = path.join(uploadsDir, req.file.filename);
-    logger.info(`Processing file: ${filePath}`);
+    logger.info(`Processing uploaded file: ${filePath} (${req.file.size} bytes)`);
 
-    await csvEmbedding(filePath);
+    try {
+      // Check if the file exists
+      if (!fs.existsSync(filePath)) {
+        throw new Error(`Uploaded file not found at ${filePath}`);
+      }
+      
+      // Ensure the data directory exists
+      if (!fs.existsSync(dataDir)) {
+        logger.info(`Creating data directory: ${dataDir}`);
+        fs.mkdirSync(dataDir, { recursive: true });
+      }
+      
+      // Process the CSV file and create embeddings
+      logger.info('Starting embedding creation process...');
+      const embeddingPath = await csvEmbedding(filePath);
+      
+      // Double-check embedding.json was created and has content
+      if (!fs.existsSync(embeddingPath)) {
+        throw new Error(`Embedding file was not created at ${embeddingPath}`);
+      }
+      
+      const stats = fs.statSync(embeddingPath);
+      if (stats.size === 0) {
+        throw new Error(`Embedding file was created but is empty: ${embeddingPath}`);
+      }
+      
+      logger.info(`Embedding file successfully created: ${embeddingPath} (${stats.size} bytes)`);
+      
+      // List the generated files for debugging
+      logger.info('Files in data directory after processing:');
+      const dataFiles = fs.readdirSync(dataDir);
+      dataFiles.forEach(file => {
+        const fileStats = fs.statSync(path.join(dataDir, file));
+        logger.info(`- ${file} (${fileStats.size} bytes, modified: ${fileStats.mtime})`);
+      });
 
-    // Verify embedding.json was created
-    const embeddingPath = path.join(dataDir, 'embedding.json');
-    if (!fs.existsSync(embeddingPath)) {
-      throw new Error('Failed to create embedding.json');
+      res.json({ 
+        success: true,
+        message: 'File processed successfully. Embeddings have been created.',
+        embeddingPath: embeddingPath,
+        fileSize: stats.size,
+        lastModified: stats.mtime
+      });
+
+      // Clean up uploaded file
+      fs.unlinkSync(filePath);
+      logger.info(`Cleaned up uploaded file: ${filePath}`);
+    } catch (error) {
+      logger.error(`Error processing file: ${error.message}`);
+      logger.error(error.stack);
+      
+      // If file still exists, try to clean it up
+      if (fs.existsSync(filePath)) {
+        try {
+          fs.unlinkSync(filePath);
+          logger.info(`Cleaned up uploaded file after error: ${filePath}`);
+        } catch (cleanupErr) {
+          logger.error(`Failed to clean up file: ${cleanupErr.message}`);
+        }
+      }
+      
+      throw error;
     }
-
-    res.json({ 
-      success: true,
-      message: 'File processed successfully. Embeddings have been created.',
-      embeddingPath: embeddingPath
-    });
-
-    // Clean up uploaded file
-    fs.unlinkSync(filePath);
   } catch (error) {
-    logger.error(`Error processing file: ${error.message}`);
-    res.status(500).json({ error: error.message });
+    logger.error(`Error in upload handler: ${error.message}`);
+    res.status(500).json({ 
+      error: error.message,
+      details: error.stack
+    });
   }
 });
 

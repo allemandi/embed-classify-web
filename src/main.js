@@ -22,6 +22,7 @@ const resultsTableBody = document.getElementById('resultsTableBody');
 
 // Initialize the application
 function init() {
+  console.log('Initializing application...');
   // Hide any previous error messages
   statusMessage.style.display = 'none';
   classificationStatus.style.display = 'none';
@@ -39,6 +40,9 @@ function init() {
   console.log('Event listeners verification:');
   console.log('- classifyButton element found:', classifyButton !== null);
   console.log('- predictButton element found:', predictButton !== null);
+  console.log('- uploadButton element found:', uploadButton !== null);
+  console.log('- dropZone element found:', dropZone !== null);
+  console.log('- fileInput element found:', fileInput !== null);
 }
 
 // Load JSON files for embedding dropdown
@@ -437,6 +441,7 @@ uploadButton.addEventListener('click', async () => {
   const file = fileInput.files[0];
   if (!file) {
     statusMessage.textContent = 'Please select a file first';
+    statusMessage.className = 'error';
     statusMessage.style.display = 'block';
     return;
   }
@@ -445,21 +450,25 @@ uploadButton.addEventListener('click', async () => {
   formData.append('file', file);
 
   try {
-    statusMessage.textContent = 'Uploading file...';
+    statusMessage.textContent = 'Uploading and processing file... (this might take a while)';
     statusMessage.style.display = 'block';
     statusMessage.className = '';
     uploadButton.disabled = true;
 
+    console.log('Uploading file to server:', file.name);
     const response = await fetch('http://localhost:3001/upload', {
       method: 'POST',
       body: formData
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Server error response:', errorText);
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
     const result = await response.json();
+    console.log('Upload response:', result);
     statusMessage.className = 'success';
     statusMessage.textContent = result.message;
     
@@ -468,15 +477,46 @@ uploadButton.addEventListener('click', async () => {
     fileInfo.textContent = '';
     uploadButton.disabled = true;
     
-    // Reload file lists after successful upload
-    loadEmbeddingFiles();
-    loadCsvFiles();
+    // Reload file lists after successful upload with retry logic
+    console.log('Reloading file lists after upload');
+    
+    // Wait briefly to ensure files are fully saved to disk
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Try reloading the file lists multiple times 
+    let attempts = 0;
+    const maxAttempts = 3;
+    
+    async function retryLoadFiles() {
+      try {
+        attempts++;
+        console.log(`Attempt ${attempts} to reload file lists`);
+        await loadEmbeddingFiles();
+        await loadCsvFiles();
+        console.log('File lists reloaded successfully');
+      } catch (error) {
+        console.error(`Error reloading file lists on attempt ${attempts}:`, error);
+        if (attempts < maxAttempts) {
+          console.log(`Retrying in ${attempts * 500}ms...`);
+          await new Promise(resolve => setTimeout(resolve, attempts * 500));
+          await retryLoadFiles();
+        } else {
+          console.error('Max retry attempts reached. Please reload the page manually.');
+          statusMessage.textContent += ' (Please refresh the page to see new files)';
+        }
+      }
+    }
+    
+    await retryLoadFiles();
+    
   } catch (error) {
+    console.error('Upload error:', error);
     statusMessage.className = 'error';
     statusMessage.textContent = `Error: ${error.message}`;
     uploadButton.disabled = false;
   }
 });
 
-// Initialize app on page load
+// Initialize app immediately and also on page load
+init();
 document.addEventListener('DOMContentLoaded', init); 
