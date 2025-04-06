@@ -136,6 +136,63 @@ app.post('/api/files/delete', (req, res) => {
   }
 });
 
+// Rename a file
+app.post('/api/files/rename', (req, res) => {
+  try {
+    const { oldPath, newName } = req.body;
+    
+    if (!oldPath || !newName) {
+      logger.error('Missing parameters in rename request');
+      return res.status(400).json({ error: 'Old path and new name are required' });
+    }
+    
+    // Security check: only allow renaming files in the data directory
+    if (!oldPath.includes(dataDir)) {
+      logger.error(`Security violation - attempted to rename file outside data directory: ${oldPath}`);
+      return res.status(403).json({ error: 'Cannot rename files outside of data directory' });
+    }
+    
+    if (!fs.existsSync(oldPath)) {
+      logger.error(`File does not exist: ${oldPath}`);
+      return res.status(404).json({ error: 'File not found' });
+    }
+    
+    // Check if it's a JSON file
+    if (!oldPath.endsWith('.json')) {
+      logger.error(`Not a JSON file: ${oldPath}`);
+      return res.status(400).json({ error: 'Only JSON files can be renamed using this endpoint' });
+    }
+    
+    // Ensure newName has .json extension
+    const formattedNewName = newName.endsWith('.json') ? newName : `${newName}.json`;
+    
+    // Create new path with the same directory but new filename
+    const dirName = path.dirname(oldPath);
+    const newPath = path.join(dirName, formattedNewName);
+    
+    // Check if the destination file already exists
+    if (fs.existsSync(newPath) && oldPath !== newPath) {
+      logger.error(`Destination file already exists: ${newPath}`);
+      return res.status(409).json({ error: 'A file with that name already exists' });
+    }
+    
+    // Rename the file
+    fs.renameSync(oldPath, newPath);
+    logger.info(`Successfully renamed file from ${oldPath} to ${newPath}`);
+    
+    res.json({ 
+      success: true, 
+      message: 'File renamed successfully', 
+      oldPath: oldPath,
+      newPath: newPath,
+      newName: formattedNewName
+    });
+  } catch (error) {
+    logger.error(`Error renaming file: ${error.message}`);
+    res.status(500).json({ error: 'Error renaming file', details: error.message });
+  }
+});
+
 // Get list of CSV files in data directory
 app.get('/api/files/csv', (req, res) => {
   try {

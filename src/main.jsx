@@ -34,7 +34,9 @@ import {
   CircularProgress,
   useMediaQuery,
   Card,
-  CardContent
+  CardContent,
+  Checkbox,
+  ListItemIcon
 } from '@mui/material';
 
 // Import icons
@@ -48,7 +50,10 @@ import {
   Dataset as DatasetIcon,
   Settings as SettingsIcon,
   CheckCircle as SuccessIcon,
-  Error as ErrorIcon
+  Error as ErrorIcon,
+  Edit as EditIcon,
+  Save as SaveIcon,
+  Cancel as CancelIcon
 } from '@mui/icons-material';
 
 // App component
@@ -65,6 +70,11 @@ const App = () => {
   const [classifyStatus, setClassifyStatus] = useState({ show: false, message: '', severity: 'info' });
   const [manageStatus, setManageStatus] = useState({ show: false, message: '', severity: 'info' });
   const [loading, setLoading] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [editingFile, setEditingFile] = useState(null);
+  const [editFileName, setEditFileName] = useState('');
+  const [newFileName, setNewFileName] = useState('');
+  const [fileToRename, setFileToRename] = useState(null);
   
   // Data state
   const [embeddingFiles, setEmbeddingFiles] = useState([]);
@@ -212,6 +222,156 @@ const App = () => {
     } finally {
       setLoading(false);
     }
+  };
+  
+  // Delete multiple datasets
+  const deleteSelectedDatasets = async () => {
+    if (selectedFiles.length === 0) {
+      setManageStatus({
+        show: true,
+        message: 'No files selected for deletion',
+        severity: 'warning'
+      });
+      return;
+    }
+    
+    try {
+      setManageStatus({
+        show: true,
+        message: `Deleting ${selectedFiles.length} file(s)...`,
+        severity: 'info'
+      });
+      setLoading(true);
+      
+      for (const filePath of selectedFiles) {
+        const response = await fetch('http://localhost:3001/api/files/delete', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            filePath
+          }),
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Server error response:', errorText);
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        await response.json();
+      }
+      
+      setManageStatus({
+        show: true,
+        message: `Successfully deleted ${selectedFiles.length} file(s)`,
+        severity: 'success'
+      });
+      
+      // Reset selection and reload datasets
+      setSelectedFiles([]);
+      await loadEmbeddingFiles();
+    } catch (error) {
+      console.error('Error deleting datasets:', error);
+      setManageStatus({
+        show: true,
+        message: `Error deleting files: ${error.message}`,
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Rename a dataset
+  const renameDataset = async (filePath, newName) => {
+    // Ensure newName has .json extension
+    if (!newName) {
+      setManageStatus({
+        show: true,
+        message: 'Please provide a new name',
+        severity: 'warning'
+      });
+      return;
+    }
+    
+    // Ensure the filename has .json extension
+    const formattedNewName = newName.endsWith('.json') ? newName : `${newName}.json`;
+    
+    try {
+      setManageStatus({
+        show: true,
+        message: `Renaming file...`,
+        severity: 'info'
+      });
+      setLoading(true);
+      
+      // This would need a backend endpoint for renaming files
+      // For now this is a placeholder - you would need to implement the rename API
+      const response = await fetch('http://localhost:3001/api/files/rename', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          oldPath: filePath,
+          newName: formattedNewName
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Server error response:', errorText);
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      await response.json();
+      
+      setManageStatus({
+        show: true,
+        message: `Successfully renamed file to ${formattedNewName}`,
+        severity: 'success'
+      });
+      
+      // Reset and reload
+      setEditingFile(null);
+      setEditFileName('');
+      await loadEmbeddingFiles();
+    } catch (error) {
+      console.error('Error renaming dataset:', error);
+      setManageStatus({
+        show: true,
+        message: `Error renaming file: ${error.message}`,
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Handle selection of files for deletion
+  const handleToggleSelect = (filePath) => {
+    setSelectedFiles(prev => {
+      if (prev.includes(filePath)) {
+        return prev.filter(path => path !== filePath);
+      } else {
+        return [...prev, filePath];
+      }
+    });
+  };
+  
+  // Start editing a file name
+  const startEditing = (file) => {
+    setEditingFile(file.path);
+    // Remove .json extension for editing but keep it stored internally
+    setEditFileName(file.name.replace(/\.json$/, ''));
+  };
+  
+  // Cancel editing
+  const cancelEditing = () => {
+    setEditingFile(null);
+    setEditFileName('');
   };
   
   // Handle file upload
@@ -494,67 +654,203 @@ const App = () => {
   
   // Create Embeddings Tab
   const renderCreateEmbeddingsTab = () => (
-    <Paper elevation={3} sx={{ my: 2, p: 3 }}>
-      <Typography variant="h5" component="h2" gutterBottom>
-        <UploadIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-        Create Embeddings
-      </Typography>
-      
-      <Box sx={{ mt: 3, p: 2, border: '2px dashed', borderColor: 'primary.main', borderRadius: 2, textAlign: 'center' }}>
-        <input
-          accept=".csv"
-          style={{ display: 'none' }}
-          id="file-upload"
-          type="file"
-          onChange={handleFileSelected}
-        />
-        <label htmlFor="file-upload">
-          <Button 
-            variant="contained" 
-            component="span" 
-            startIcon={<UploadIcon />}
-            fullWidth
-          >
-            Choose CSV File
-          </Button>
-        </label>
+    <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3, mt: 2 }}>
+      <Paper elevation={3} sx={{ my: 2, p: 3, flex: 1 }}>
+        <Typography variant="h5" component="h2" gutterBottom>
+          <UploadIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+          Create Embeddings
+        </Typography>
         
-        {fileToUpload && (
-          <Typography variant="body2" sx={{ mt: 2 }}>
-            Selected file: {fileToUpload.name}
-          </Typography>
+        <Box sx={{ mt: 3, p: 2, border: '2px dashed', borderColor: 'primary.main', borderRadius: 2, textAlign: 'center' }}>
+          <input
+            accept=".csv"
+            style={{ display: 'none' }}
+            id="file-upload"
+            type="file"
+            onChange={handleFileSelected}
+          />
+          <label htmlFor="file-upload">
+            <Button 
+              variant="contained" 
+              component="span" 
+              startIcon={<UploadIcon />}
+              fullWidth
+            >
+              Choose CSV File
+            </Button>
+          </label>
+          
+          {fileToUpload && (
+            <Typography variant="body2" sx={{ mt: 2 }}>
+              Selected file: {fileToUpload.name}
+            </Typography>
+          )}
+        </Box>
+        
+        <Button
+          variant="contained"
+          color="primary"
+          disabled={!fileToUpload || loading}
+          onClick={handleUploadFile}
+          fullWidth
+          sx={{ mt: 2 }}
+          startIcon={loading ? <CircularProgress size={24} /> : null}
+        >
+          {loading ? 'Processing...' : 'Upload and Process'}
+        </Button>
+        
+        {uploadStatus.show && (
+          <Alert severity={uploadStatus.severity} sx={{ mt: 2 }}>
+            {uploadStatus.message}
+          </Alert>
         )}
-      </Box>
-      
-      <Button
-        variant="contained"
-        color="primary"
-        disabled={!fileToUpload || loading}
-        onClick={handleUploadFile}
-        fullWidth
-        sx={{ mt: 2 }}
-        startIcon={loading ? <CircularProgress size={24} /> : null}
-      >
-        {loading ? 'Processing...' : 'Upload and Process'}
-      </Button>
-      
-      {uploadStatus.show && (
-        <Alert severity={uploadStatus.severity} sx={{ mt: 2 }}>
-          {uploadStatus.message}
-        </Alert>
-      )}
-    </Paper>
+      </Paper>
+
+      {/* Manage Datasets Panel */}
+      <Card sx={{ flex: 1, my: 2 }}>
+        <CardContent>
+          <Typography variant="h5" component="h2" gutterBottom>
+            <DatasetIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+            Manage Embeddings
+          </Typography>
+          
+          {manageStatus.show && (
+            <Alert severity={manageStatus.severity} sx={{ mb: 2 }}>
+              {manageStatus.message}
+            </Alert>
+          )}
+          
+          <Box sx={{ mb: 2, display: 'flex', gap: 2 }}>
+            <Button 
+              variant="outlined" 
+              color="error" 
+              disabled={loading || selectedFiles.length === 0}
+              onClick={deleteSelectedDatasets}
+              startIcon={<DeleteIcon />}
+              size="small"
+            >
+              Delete Selected
+            </Button>
+            <Typography variant="body2" sx={{ lineHeight: '30px' }}>
+              {selectedFiles.length} file(s) selected
+            </Typography>
+          </Box>
+          
+          <List sx={{ bgcolor: 'background.paper', borderRadius: 1 }}>
+            {embeddingFiles.length === 0 ? (
+              <ListItem>
+                <ListItemText primary="No datasets available" />
+              </ListItem>
+            ) : (
+              embeddingFiles.map((file, index) => {
+                const isSelected = selectedFiles.includes(file.path);
+                const isEditing = editingFile === file.path;
+                
+                return (
+                  <React.Fragment key={file.path}>
+                    {index > 0 && <Divider />}
+                    <ListItem>
+                      <ListItemIcon>
+                        <Checkbox
+                          edge="start"
+                          checked={isSelected}
+                          onChange={() => handleToggleSelect(file.path)}
+                          disabled={loading}
+                          tabIndex={-1}
+                          disableRipple
+                        />
+                      </ListItemIcon>
+                      
+                      {isEditing ? (
+                        <TextField
+                          value={editFileName}
+                          onChange={(e) => setEditFileName(e.target.value)}
+                          variant="standard"
+                          autoFocus
+                          fullWidth
+                          sx={{ mr: 6 }}
+                          disabled={loading}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter' && editFileName.trim()) {
+                              renameDataset(file.path, editFileName);
+                            }
+                          }}
+                          helperText=".json will be added automatically"
+                          placeholder="Enter file name without extension"
+                        />
+                      ) : (
+                        <ListItemText 
+                          primary={file.name} 
+                          secondary={`Modified: ${new Date(file.modified).toLocaleString()}`} 
+                        />
+                      )}
+                      
+                      <ListItemSecondaryAction>
+                        {isEditing ? (
+                          <>
+                            <IconButton 
+                              edge="end" 
+                              aria-label="save"
+                              onClick={() => renameDataset(file.path, editFileName)}
+                              disabled={loading || !editFileName.trim()}
+                              color="primary"
+                              sx={{ mr: 1 }}
+                            >
+                              <SaveIcon />
+                            </IconButton>
+                            <IconButton 
+                              edge="end" 
+                              aria-label="cancel"
+                              onClick={cancelEditing}
+                              disabled={loading}
+                            >
+                              <CancelIcon />
+                            </IconButton>
+                          </>
+                        ) : (
+                          <>
+                            <IconButton 
+                              edge="end" 
+                              aria-label="edit"
+                              onClick={() => startEditing(file)}
+                              disabled={loading || isEditing}
+                              color="primary"
+                              sx={{ mr: 1 }}
+                            >
+                              <EditIcon />
+                            </IconButton>
+                            <IconButton 
+                              edge="end" 
+                              aria-label="delete"
+                              onClick={() => deleteDataset(file.path, file.name)}
+                              disabled={loading}
+                              color="error"
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          </>
+                        )}
+                      </ListItemSecondaryAction>
+                    </ListItem>
+                  </React.Fragment>
+                );
+              })
+            )}
+          </List>
+        </CardContent>
+      </Card>
+    </Box>
   );
   
-  // Manage & Evaluate Tab
+  // Evaluate Tab (renamed from Manage & Evaluate Tab)
   const renderManageEvaluateTab = () => (
     <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3, mt: 2 }}>
       {/* Evaluate Panel */}
-      <Card sx={{ flex: 1 }}>
+      <Card sx={{ flex: 1, height: 'fit-content' }}>
         <CardContent>
           <Typography variant="h5" component="h2" gutterBottom>
             <ChartIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-            Evaluate Model
+            Evaluate Embeddings
           </Typography>
           
           <FormControl fullWidth sx={{ mt: 2 }}>
@@ -594,13 +890,40 @@ const App = () => {
               {evaluateStatus.message}
             </Alert>
           )}
-          
+        </CardContent>
+      </Card>
+
+      {/* Results Panel - always present */}
+      <Card sx={{ flex: 2 }}>
+        <CardContent>
+          <Typography variant="h5" component="h2" gutterBottom>
+            Evaluation Results
+          </Typography>
+          {!evaluationResults && (
+            <Box 
+              sx={{ 
+                mt: 2,
+                p: 4,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minHeight: '200px',
+                backgroundColor: 'background.default',
+                borderRadius: 1
+              }}
+            >
+              <Typography variant="body1" color="text.secondary" align="center">
+                Select a model and click "Evaluate" to see results
+              </Typography>
+            </Box>
+          )}
           {evaluationResults && (
             <Box 
               sx={{ 
                 mt: 2, 
                 p: 2, 
-                maxHeight: 400, 
+                maxHeight: 600, 
                 overflow: 'auto', 
                 backgroundColor: 'background.default',
                 fontFamily: 'monospace',
@@ -611,53 +934,6 @@ const App = () => {
               {evaluationResults}
             </Box>
           )}
-        </CardContent>
-      </Card>
-      
-      {/* Manage Datasets Panel */}
-      <Card sx={{ flex: 1 }}>
-        <CardContent>
-          <Typography variant="h5" component="h2" gutterBottom>
-            <DatasetIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-            Manage Datasets
-          </Typography>
-          
-          {manageStatus.show && (
-            <Alert severity={manageStatus.severity} sx={{ mb: 2 }}>
-              {manageStatus.message}
-            </Alert>
-          )}
-          
-          <List sx={{ bgcolor: 'background.paper', borderRadius: 1 }}>
-            {embeddingFiles.length === 0 ? (
-              <ListItem>
-                <ListItemText primary="No datasets available" />
-              </ListItem>
-            ) : (
-              embeddingFiles.map((file, index) => (
-                <React.Fragment key={file.path}>
-                  {index > 0 && <Divider />}
-                  <ListItem>
-                    <ListItemText 
-                      primary={file.name} 
-                      secondary={`Modified: ${new Date(file.modified).toLocaleString()}`} 
-                    />
-                    <ListItemSecondaryAction>
-                      <IconButton 
-                        edge="end" 
-                        aria-label="delete"
-                        onClick={() => deleteDataset(file.path, file.name)}
-                        disabled={loading}
-                        color="error"
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    </ListItemSecondaryAction>
-                  </ListItem>
-                </React.Fragment>
-              ))
-            )}
-          </List>
         </CardContent>
       </Card>
     </Box>
@@ -786,8 +1062,8 @@ const App = () => {
             textColor="inherit"
             indicatorColor="secondary"
           >
-            <Tab icon={<UploadIcon />} label="Create" />
-            <Tab icon={<SettingsIcon />} label="Manage & Evaluate" />
+            <Tab icon={<UploadIcon />} label="Create and Manage" />
+            <Tab icon={<SettingsIcon />} label="Evaluate" />
             <Tab icon={<CategoryIcon />} label="Classify" />
           </Tabs>
         </AppBar>
