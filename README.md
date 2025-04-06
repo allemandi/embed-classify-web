@@ -1,6 +1,6 @@
 # 📦 embed-classify-web
 
-Web application for local text classification using word embeddings.
+A modern web application for embedding and classifying text data using machine learning.
 
 ## 🚀 Features
 
@@ -9,6 +9,8 @@ Web application for local text classification using word embeddings.
 - 📈 Optional evaluation of dataset performance
 - 🗃️ Works with CSVs containing `category` and `comment` headers
 - 🌐 Web interface for easy usage
+- Modern, responsive UI with dark/light mode
+- Mobile-friendly interface
 
 > Ideal for local NLP classification workflows.
 
@@ -58,5 +60,68 @@ The classification parameters are automatically handled through the web interfac
 - Enhanced classification & preprocessing algorithms
 - Improved data input/upload flows
 - Deployment & example datasets
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js (v16+)
+- Yarn package manager
+
+### Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/your-username/embed-classify-web.git
+cd embed-classify-web
+```
+
+2. Install dependencies:
+```bash
+yarn install
+```
+
+3. Start the application:
+```bash
+yarn start
+```
+
+This will start both the frontend development server and the backend API server.
+
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:3001
+
+## Usage
+
+### 1. Create Embeddings
+
+1. Go to the "Create" tab
+2. Upload a CSV file containing your training data
+3. Click "Upload and Process" to generate embeddings
+
+### 2. Manage & Evaluate Models
+
+1. Go to the "Manage & Evaluate" tab
+2. Select a model to evaluate from the dropdown
+3. Click "Evaluate" to see model performance metrics
+4. You can also delete models you no longer need
+
+### 3. Classify New Data
+
+1. Go to the "Classify" tab
+2. Select a model to use for classification
+3. Select the CSV file with unclassified data
+4. Click "Classify Data" to categorize your data
+5. View the results in the table below
+
+## UI Features
+
+- **Dark/Light Mode Toggle**: Click the sun/moon icon in the top-right corner to switch between dark and light modes
+- **Responsive Design**: The application works on both desktop and mobile devices
+- **Modern UI Components**: Built with Material-UI for a sleek, professional appearance
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 ---

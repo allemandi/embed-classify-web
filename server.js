@@ -98,6 +98,44 @@ app.get('/api/files/json', (req, res) => {
   }
 });
 
+// Delete a file
+app.post('/api/files/delete', (req, res) => {
+  try {
+    const { filePath } = req.body;
+    
+    if (!filePath) {
+      logger.error('No file path provided in delete request');
+      return res.status(400).json({ error: 'File path is required' });
+    }
+    
+    // Security check: only allow deleting files from the data directory
+    if (!filePath.includes(dataDir)) {
+      logger.error(`Security violation - attempted to delete file outside data directory: ${filePath}`);
+      return res.status(403).json({ error: 'Cannot delete files outside of data directory' });
+    }
+    
+    if (!fs.existsSync(filePath)) {
+      logger.error(`File does not exist: ${filePath}`);
+      return res.status(404).json({ error: 'File not found' });
+    }
+    
+    // Check if it's a JSON file
+    if (!filePath.endsWith('.json')) {
+      logger.error(`Not a JSON file: ${filePath}`);
+      return res.status(400).json({ error: 'Only JSON files can be deleted using this endpoint' });
+    }
+    
+    // Delete the file
+    fs.unlinkSync(filePath);
+    logger.info(`Successfully deleted file: ${filePath}`);
+    
+    res.json({ success: true, message: 'File deleted successfully' });
+  } catch (error) {
+    logger.error(`Error deleting file: ${error.message}`);
+    res.status(500).json({ error: 'Error deleting file', details: error.message });
+  }
+});
+
 // Get list of CSV files in data directory
 app.get('/api/files/csv', (req, res) => {
   try {
