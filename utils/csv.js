@@ -1,8 +1,8 @@
-const csv = require('csvtojson');
-const path = require('path');
-const logger = require('./logger');
+import csv from 'csvtojson';
+import path from 'path';
+import logger from './logger.js';
 
-const parseCsvToJson = async (filePath) => {
+export const parseCsvToJson = async (filePath) => {
   try {
     logger.info(`Parsing CSV file: ${filePath}`);
     const absolutePath = path.resolve(filePath);
@@ -20,7 +20,7 @@ const parseCsvToJson = async (filePath) => {
   }
 };
 
-const processCsvForEmbedding = async (filePath, categoryColumn, textColumn) => {
+export const processCsvForEmbedding = async (filePath, categoryColumn, textColumn) => {
   try {
     logger.info(
       `Processing CSV for embedding with category: ${categoryColumn}, text: ${textColumn}`
@@ -71,9 +71,4 @@ const processCsvForEmbedding = async (filePath, categoryColumn, textColumn) => {
     logger.error(`CSV processing failed: ${error.message}`);
     throw new Error(`CSV processing failed: ${error.message}`);
   }
-};
-
-module.exports = {
-  parseCsvToJson,
-  processCsvForEmbedding,
 };

@@ -143,7 +143,4 @@ const calculateMetrics = (predictions, actuals) => {
   return metrics;
 };
 
-module.exports = {
-  resolveBestCategory,
-  calculateMetrics,
-};
+export { resolveBestCategory, calculateMetrics };

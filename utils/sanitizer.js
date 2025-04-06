@@ -1,4 +1,4 @@
-const logger = require('./logger');
+import logger from './logger.js';
 
 // Regex patterns
 const WHITESPACE_REGEX = /\s+/g;
@@ -6,14 +6,15 @@ const WHITESPACE_REGEX = /\s+/g;
 // Normalizes whitespace in text
 const normalizeWhitespace = (text) => {
   if (!text) return '';
-  return text.trim().replace(WHITESPACE_REGEX, ' ');
+  return text.replace(/\s+/g, ' ').trim();
 };
 
 // Standardizes different types of quotes
 const standardizeQuotes = (text) => {
   if (!text) return '';
-  // Convert all quotes (single, double, curly) to single quotes
-  return text.replace(/['"''""]/g, "'");
+  return text
+    .replace(/[\u2018\u2019]/g, "'") // Smart single quotes
+    .replace(/[\u201C\u201D]/g, '"'); // Smart double quotes
 };
 
 // Prepare text for CSV field (without wrapping)
@@ -70,7 +71,7 @@ const batchSanitize = (texts) => {
   });
 };
 
-module.exports = {
+export {
   normalizeWhitespace,
   standardizeQuotes,
   sanitizeText,

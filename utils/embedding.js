@@ -1,7 +1,7 @@
-const csv = require('csvtojson');
-const path = require('path');
-const { pipeline } = require('@xenova/transformers');
-const logger = require('./logger');
+import csv from 'csvtojson';
+import path from 'path';
+import { pipeline } from '@xenova/transformers';
+import logger from './logger.js';
 
 const createEmbeddings = async (textArr) => {
   if (!Array.isArray(textArr) || textArr.length === 0) {
@@ -99,7 +99,4 @@ const rankSamplesBySimilarity = async (
   }
 };
 
-module.exports = {
-  createEmbeddings,
-  rankSamplesBySimilarity,
-};
+export { createEmbeddings, rankSamplesBySimilarity };

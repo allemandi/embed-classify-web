@@ -1,13 +1,12 @@
-const pino = require('pino');
+import pino from 'pino';
 
 const logger = pino({
   transport: {
     target: 'pino-pretty',
     options: {
-      translateTime: 'HH:MM:ss',
-      ignore: 'pid,hostname',
-    },
-  },
+      colorize: true
+    }
+  }
 });
 
-module.exports = logger;
+export default logger;

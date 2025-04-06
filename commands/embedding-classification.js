@@ -1,11 +1,11 @@
-const { parseCsvToJson } = require('../utils/csv');
-const logger = require('../utils/logger');
-const fs = require('fs');
-const { rankSamplesBySimilarity } = require('../utils/embedding');
-const { resolveBestCategory, calculateMetrics } = require('../utils/stats');
-const { sanitizeText, formatCSVRow } = require('../utils/sanitizer');
+import { parseCsvToJson } from '../utils/csv.js';
+import logger from '../utils/logger.js';
+import fs from 'fs';
+import { rankSamplesBySimilarity } from '../utils/embedding.js';
+import { resolveBestCategory, calculateMetrics } from '../utils/stats.js';
+import { sanitizeText, formatCSVRow } from '../utils/sanitizer.js';
 
-const embeddingClassification = async (
+export const embeddingClassification = async (
   inputFile,
   comparisonFile,
   outputFile,
@@ -177,5 +177,3 @@ const embeddingClassification = async (
     throw err;
   }
 };
-
-module.exports = embeddingClassification;

@@ -1,8 +1,9 @@
-const logger = require('../utils/logger');
-const fs = require('fs');
-const { processCsvForEmbedding } = require('../utils/csv');
-const { createEmbeddings } = require('../utils/embedding');
-const { sanitizeText } = require('../utils/sanitizer');
+import logger from '../utils/logger.js';
+import fs from 'fs';
+import path from 'path';
+import { processCsvForEmbedding } from '../utils/csv.js';
+import { createEmbeddings } from '../utils/embedding.js';
+import { sanitizeText } from '../utils/sanitizer.js';
 
 const csvEmbedding = async (inputFile) => {
   try {
@@ -36,15 +37,22 @@ const csvEmbedding = async (inputFile) => {
       ...item,
     }));
 
+    // Ensure data directory exists
+    const dataDir = path.join(process.cwd(), 'data');
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir);
+    }
+
+    const outputPath = path.join(dataDir, 'embedding.json');
     await fs.promises.writeFile(
-      'data/embedding.json', 
+      outputPath, 
       JSON.stringify(classifiedEmbeddings, null, 2)
     );
-    logger.info(`Successfully wrote to json`);
+    logger.info(`Successfully wrote embeddings to ${outputPath}`);
   } catch (error) {
     logger.error(`Failed to process CSV: ${error.message}`);
     throw error;
   }
 };
 
-module.exports = csvEmbedding;
+export default csvEmbedding;
