@@ -10,12 +10,14 @@ export const embeddingClassification = async (
   comparisonFile,
   outputFile,
   resultMetrics,
-  evaluateModel
+  evaluateModel,
+  configSettings = {}
 ) => {
-  const weightedVotes = true;
-  const comparisonPercentage = 80;
-  const maxSamplesToSearch = 40;
-  const similarityThresholdPercent = 30;
+  // Use configSettings if provided, otherwise use defaults
+  const weightedVotes = configSettings.weightedVotes !== undefined ? configSettings.weightedVotes : true;
+  const comparisonPercentage = configSettings.comparisonPercentage !== undefined ? configSettings.comparisonPercentage : 80;
+  const maxSamplesToSearch = configSettings.maxSamplesToSearch !== undefined ? configSettings.maxSamplesToSearch : 40;
+  const similarityThresholdPercent = configSettings.similarityThresholdPercent !== undefined ? configSettings.similarityThresholdPercent : 30;
   const csvHeaderStrings = {
     category: 'category',
     comment: 'comment',

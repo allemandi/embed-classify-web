@@ -448,10 +448,29 @@ app.post('/upload-csv', upload.single('file'), async (req, res) => {
   }
 });
 
+// Get content of README.md file
+app.get('/api/readme', (req, res) => {
+  try {
+    const readmePath = path.join(process.cwd(), 'README.md');
+    
+    if (!fs.existsSync(readmePath)) {
+      logger.error(`README.md not found: ${readmePath}`);
+      return res.status(404).json({ error: 'README.md file not found' });
+    }
+    
+    const content = fs.readFileSync(readmePath, 'utf-8');
+    res.header('Content-Type', 'text/plain');
+    res.send(content);
+  } catch (error) {
+    logger.error(`Error reading README file: ${error.message}`);
+    res.status(500).json({ error: 'Error reading README file', details: error.message });
+  }
+});
+
 // Handle classification request
 app.post('/api/classify', async (req, res) => {
   try {
-    const { embeddingFile, unclassifiedFile } = req.body;
+    const { embeddingFile, unclassifiedFile, config } = req.body;
     
     if (!embeddingFile) {
       return res.status(400).json({ error: 'Embedding file is required' });
@@ -461,6 +480,16 @@ app.post('/api/classify', async (req, res) => {
     const outputFile = path.join(dataDir, 'predicted.csv');
     const resultMetrics = true;
     const evaluateModel = true;
+    
+    // Use configuration parameters if provided, otherwise use defaults
+    const configSettings = {
+      weightedVotes: config?.weightedVotes !== undefined ? config.weightedVotes : true,
+      comparisonPercentage: config?.comparisonPercentage !== undefined ? config.comparisonPercentage : 80,
+      maxSamplesToSearch: config?.maxSamplesToSearch !== undefined ? config.maxSamplesToSearch : 40,
+      similarityThresholdPercent: config?.similarityThresholdPercent !== undefined ? config.similarityThresholdPercent : 30
+    };
+    
+    logger.info('Using configuration settings:', configSettings);
     
     let jsonData;
     try {
@@ -481,16 +510,15 @@ app.post('/api/classify', async (req, res) => {
       return array;
     };
 
-    const comparisonPercentage = 80;
     const randomizedEmbeddingArray = shuffle([...jsonData]);
     const originalEmbeddingLength = randomizedEmbeddingArray.length;
     const majorityIndex = Math.round(
-      originalEmbeddingLength * (comparisonPercentage / 100)
+      originalEmbeddingLength * (configSettings.comparisonPercentage / 100)
     );
 
     const comparisonData = randomizedEmbeddingArray.slice(0, majorityIndex);
     logger.info(
-      `Reserving ${comparisonPercentage}% (${comparisonData.length}) of original dataset to compare.`
+      `Reserving ${configSettings.comparisonPercentage}% (${comparisonData.length}) of original dataset to compare.`
     );
 
     // Run evaluation
@@ -499,7 +527,7 @@ app.post('/api/classify', async (req, res) => {
     if (evaluateModel) {
       const evaluateData = randomizedEmbeddingArray.slice(majorityIndex);
       logger.info(
-        `Starting model evaluation preview using remaining ${100 - comparisonPercentage}% (${evaluateData.length}) of samples.`
+        `Starting model evaluation preview using remaining ${100 - configSettings.comparisonPercentage}% (${evaluateData.length}) of samples.`
       );
 
       // Process evaluation in chunks to prevent memory issues
@@ -513,10 +541,10 @@ app.post('/api/classify', async (req, res) => {
             const searchResults = await rankSamplesBySimilarity(
               item.text,
               comparisonData,
-              40, // maxSamplesToSearch
-              30  // similarityThresholdPercent
+              configSettings.maxSamplesToSearch,
+              configSettings.similarityThresholdPercent
             );
-            const predictedCategory = resolveBestCategory(searchResults, true) || '???';
+            const predictedCategory = resolveBestCategory(searchResults, configSettings.weightedVotes) || '???';
             const confidence = searchResults[0]?.score || 0;
 
             return {
@@ -576,7 +604,8 @@ app.post('/api/classify', async (req, res) => {
           embeddingFile,
           outputFile,
           resultMetrics,
-          false // Don't run evaluation again
+          false, // Don't run evaluation again
+          configSettings // Pass the configuration settings
         );
       } catch (error) {
         logger.error(`Error processing unclassified file: ${error.message}`);

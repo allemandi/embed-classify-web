@@ -53,7 +53,8 @@ import {
   Error as ErrorIcon,
   Edit as EditIcon,
   Save as SaveIcon,
-  Cancel as CancelIcon
+  Cancel as CancelIcon,
+  Info as InfoIcon
 } from '@mui/icons-material';
 
 // App component
@@ -78,6 +79,7 @@ const App = () => {
   const [editCsvFileName, setEditCsvFileName] = useState('');
   const [newFileName, setNewFileName] = useState('');
   const [fileToRename, setFileToRename] = useState(null);
+  const [readmeContent, setReadmeContent] = useState('');
   
   // Data state
   const [embeddingFiles, setEmbeddingFiles] = useState([]);
@@ -88,6 +90,12 @@ const App = () => {
   const [evaluationResults, setEvaluationResults] = useState('');
   const [classificationResults, setClassificationResults] = useState([]);
   const [classifyCsvStatus, setClassifyCsvStatus] = useState({ show: false, message: '', severity: 'info' });
+  
+  // Configuration state
+  const [weightedVotes, setWeightedVotes] = useState(true);
+  const [comparisonPercentage, setComparisonPercentage] = useState(80); // Default 80%
+  const [maxSamplesToSearch, setMaxSamplesToSearch] = useState(40); // Default 40 samples
+  const [similarityThresholdPercent, setSimilarityThresholdPercent] = useState(30); // Default 30%
   
   // Create dynamic theme
   const theme = React.useMemo(
@@ -135,6 +143,7 @@ const App = () => {
     // Initial data loading
     loadEmbeddingFiles();
     loadCsvFiles();
+    loadReadmeContent();
   }, []);
   
   // Tab change handler
@@ -176,6 +185,22 @@ const App = () => {
       setCsvFiles(files);
     } catch (error) {
       console.error('Error loading CSV files:', error);
+    }
+  };
+  
+  // Load README.md content
+  const loadReadmeContent = async () => {
+    try {
+      const response = await fetch('http://localhost:3001/api/readme');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const content = await response.text();
+      setReadmeContent(content);
+    } catch (error) {
+      console.error('Error loading README content:', error);
+      setReadmeContent('# Error\nFailed to load README content. Please try again later.');
     }
   };
   
@@ -561,6 +586,12 @@ const App = () => {
         body: JSON.stringify({
           embeddingFile: selectedEvaluationModel,
           unclassifiedFile: null,
+          config: {
+            weightedVotes,
+            comparisonPercentage,
+            maxSamplesToSearch,
+            similarityThresholdPercent
+          }
         }),
       });
       
@@ -660,6 +691,12 @@ const App = () => {
         body: JSON.stringify({
           embeddingFile: selectedClassificationModel,
           unclassifiedFile: selectedCsvFile,
+          config: {
+            weightedVotes,
+            comparisonPercentage,
+            maxSamplesToSearch,
+            similarityThresholdPercent
+          }
         }),
       });
       
@@ -863,85 +900,6 @@ const App = () => {
   // Create Embeddings Tab
   const renderCreateEmbeddingsTab = () => (
     <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3, mt: 2 }}>
-      <Paper elevation={3} sx={{ my: 2, p: 3, flex: 1 }}>
-        <Typography variant="h5" component="h2" gutterBottom>
-          <UploadIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-          Create Embeddings
-        </Typography>
-        
-        <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
-          Upload a CSV file with <strong>category</strong> and <strong>comment</strong> columns to create embeddings.
-        </Typography>
-        
-        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
-          <Button 
-            variant="outlined" 
-            size="small"
-            onClick={() => {
-              const csvContent = "category,comment\npositive,This product works great\nnegative,The quality was disappointing";
-              const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-              const link = document.createElement('a');
-              const url = URL.createObjectURL(blob);
-              link.href = url;
-              link.download = 'template.csv';
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-            }}
-          >
-            Download Template CSV
-          </Button>
-        </Box>
-        
-        <Box sx={{ mt: 3, p: 2, border: '2px dashed', borderColor: 'primary.main', borderRadius: 2, textAlign: 'center' }}>
-          <input
-            accept=".csv"
-            style={{ display: 'none' }}
-            id="file-upload"
-            type="file"
-            onChange={handleFileSelected}
-          />
-          <label htmlFor="file-upload">
-            <Button 
-              variant="contained" 
-              component="span" 
-              startIcon={<UploadIcon />}
-              fullWidth
-            >
-              Choose CSV File
-            </Button>
-          </label>
-          
-          {fileToUpload && (
-            <Typography variant="body2" sx={{ mt: 2 }}>
-              Selected file: {fileToUpload.name}
-            </Typography>
-          )}
-        </Box>
-        
-        <Alert severity="info" sx={{ mt: 2, mb: 2 }}>
-          Your CSV file <strong>must</strong> have columns named <code>category</code> and <code>comment</code>.
-        </Alert>
-        
-        <Button
-          variant="contained"
-          color="primary"
-          disabled={!fileToUpload || loading}
-          onClick={handleUploadFile}
-          fullWidth
-          sx={{ mt: 2 }}
-          startIcon={loading ? <CircularProgress size={24} /> : null}
-        >
-          {loading ? 'Processing...' : 'Upload and Process'}
-        </Button>
-        
-        {uploadStatus.show && (
-          <Alert severity={uploadStatus.severity} sx={{ mt: 2 }}>
-            {uploadStatus.message}
-          </Alert>
-        )}
-      </Paper>
-
       {/* Manage Datasets Panel */}
       <Card sx={{ flex: 1, my: 2 }}>
         <CardContent>
@@ -1075,21 +1033,235 @@ const App = () => {
           </List>
         </CardContent>
       </Card>
+
+      <Paper elevation={3} sx={{ my: 2, p: 3, flex: 1 }}>
+        <Typography variant="h5" component="h2" gutterBottom>
+          <UploadIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+          Create Embeddings
+        </Typography>
+        
+        <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
+          Upload a CSV file with <strong>category</strong> and <strong>comment</strong> columns to create embeddings.
+        </Typography>
+        
+        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+          <Button 
+            variant="outlined" 
+            size="small"
+            onClick={() => {
+              const csvContent = "category,comment\npositive,This product works great\nnegative,The quality was disappointing";
+              const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+              const link = document.createElement('a');
+              const url = URL.createObjectURL(blob);
+              link.href = url;
+              link.download = 'template.csv';
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            }}
+          >
+            Download Template CSV
+          </Button>
+        </Box>
+        
+        <Box sx={{ mt: 3, p: 2, border: '2px dashed', borderColor: 'primary.main', borderRadius: 2, textAlign: 'center' }}>
+          <input
+            accept=".csv"
+            style={{ display: 'none' }}
+            id="file-upload"
+            type="file"
+            onChange={handleFileSelected}
+          />
+          <label htmlFor="file-upload">
+            <Button 
+              variant="contained" 
+              component="span" 
+              startIcon={<UploadIcon />}
+              fullWidth
+            >
+              Choose CSV File
+            </Button>
+          </label>
+          
+          {fileToUpload && (
+            <Typography variant="body2" sx={{ mt: 2 }}>
+              Selected file: {fileToUpload.name}
+            </Typography>
+          )}
+        </Box>
+        
+        <Alert severity="info" sx={{ mt: 2, mb: 2 }}>
+          Your CSV file <strong>must</strong> have columns named <code>category</code> and <code>comment</code>.
+        </Alert>
+        
+        <Button
+          variant="contained"
+          color="primary"
+          disabled={!fileToUpload || loading}
+          onClick={handleUploadFile}
+          fullWidth
+          sx={{ mt: 2 }}
+          startIcon={loading ? <CircularProgress size={24} /> : null}
+        >
+          {loading ? 'Processing...' : 'Upload and Process'}
+        </Button>
+        
+        {uploadStatus.show && (
+          <Alert severity={uploadStatus.severity} sx={{ mt: 2 }}>
+            {uploadStatus.message}
+          </Alert>
+        )}
+      </Paper>
     </Box>
   );
   
-  // Evaluate Tab (renamed from Manage & Evaluate Tab)
+  // Evaluate Tab (renamed to Config & Evaluate Tab)
   const renderManageEvaluateTab = () => (
     <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3, mt: 2 }}>
-      {/* Evaluate Panel */}
-      <Card sx={{ flex: 1, height: 'fit-content' }}>
+      {/* Configuration Panel */}
+      <Card sx={{ flex: 2 }}>
+        <CardContent>
+          <Typography variant="h5" component="h2" gutterBottom>
+            <SettingsIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+            Config
+          </Typography>
+          
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            These settings control classification and evaluation behavior.
+          </Typography>
+          
+          <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'medium', mb: 2 }}>
+            Classification Logic
+          </Typography>
+          
+          <FormControl fullWidth sx={{ mb: 3 }}>
+            <Typography variant="subtitle2" gutterBottom>
+              Weighted Votes
+            </Typography>
+            <Select
+              value={weightedVotes ? 'true' : 'false'}
+              onChange={(e) => setWeightedVotes(e.target.value === 'true')}
+              disabled={loading}
+              size="small"
+            >
+              <MenuItem value="true">Enabled</MenuItem>
+              <MenuItem value="false">Disabled</MenuItem>
+            </Select>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
+              When enabled, votes are weighted by similarity scores; when disabled, uses simple majority vote
+            </Typography>
+          </FormControl>
+          
+          <FormControl fullWidth sx={{ mb: 3 }}>
+            <Typography variant="subtitle2" gutterBottom>
+              Max Samples To Search
+            </Typography>
+            <TextField
+              type="number"
+              value={maxSamplesToSearch}
+              onChange={(e) => {
+                const value = parseInt(e.target.value);
+                if (!isNaN(value) && value > 0) {
+                  setMaxSamplesToSearch(value);
+                }
+              }}
+              disabled={loading}
+              size="small"
+              InputProps={{
+                inputProps: { min: 1 }
+              }}
+            />
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
+              Maximum samples to compare for each classification
+            </Typography>
+          </FormControl>
+          
+          <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'medium', mb: 2 }}>
+            Thresholds
+          </Typography>
+          
+          <FormControl fullWidth sx={{ mb: 3 }}>
+            <Typography variant="subtitle2" gutterBottom>
+              Comparison Percentage
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <TextField
+                type="number"
+                value={comparisonPercentage}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value);
+                  if (!isNaN(value) && value >= 0 && value <= 100) {
+                    setComparisonPercentage(value);
+                  }
+                }}
+                disabled={loading}
+                size="small"
+                InputProps={{
+                  endAdornment: <Typography variant="body2">%</Typography>,
+                  inputProps: { min: 0, max: 100 }
+                }}
+              />
+            </Box>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
+              Percent of dataset to use for comparison (0-100)
+            </Typography>
+          </FormControl>
+          
+          <FormControl fullWidth sx={{ mb: 3 }}>
+            <Typography variant="subtitle2" gutterBottom>
+              Similarity Threshold
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <TextField
+                type="number"
+                value={similarityThresholdPercent}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value);
+                  if (!isNaN(value) && value >= 0 && value <= 100) {
+                    setSimilarityThresholdPercent(value);
+                  }
+                }}
+                disabled={loading}
+                size="small"
+                InputProps={{
+                  endAdornment: <Typography variant="body2">%</Typography>,
+                  inputProps: { min: 0, max: 100 }
+                }}
+              />
+            </Box>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
+              Minimum cosine similarity required for a sample to be considered in classification
+            </Typography>
+          </FormControl>
+          
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+            <Button
+              variant="outlined"
+              onClick={() => {
+                setWeightedVotes(true);
+                setComparisonPercentage(80);
+                setMaxSamplesToSearch(40);
+                setSimilarityThresholdPercent(30);
+              }}
+              disabled={loading}
+              size="small"
+              startIcon={<SettingsIcon />}
+            >
+              Reset to Defaults
+            </Button>
+          </Box>
+        </CardContent>
+      </Card>
+
+      {/* Combined Evaluate Panel */}
+      <Card sx={{ flex: 3 }}>
         <CardContent>
           <Typography variant="h5" component="h2" gutterBottom>
             <ChartIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
             Evaluate Embeddings
           </Typography>
           
-          <FormControl fullWidth sx={{ mt: 2 }}>
+          <FormControl fullWidth sx={{ mt: 2, mb: 3 }}>
             <InputLabel id="evaluation-model-label">Select Embedding Model</InputLabel>
             <Select
               labelId="evaluation-model-label"
@@ -1115,51 +1287,46 @@ const App = () => {
             disabled={!selectedEvaluationModel || loading}
             onClick={handleEvaluateModel}
             fullWidth
-            sx={{ mt: 2 }}
+            sx={{ mb: 3 }}
             startIcon={loading ? <CircularProgress size={24} /> : <ChartIcon />}
           >
-            {loading ? 'Evaluating...' : 'Evaluate'}
+            {loading ? 'Evaluating...' : 'Evaluate Model'}
           </Button>
           
           {evaluateStatus.show && (
-            <Alert severity={evaluateStatus.severity} sx={{ mt: 2 }}>
+            <Alert severity={evaluateStatus.severity} sx={{ mb: 3 }}>
               {evaluateStatus.message}
             </Alert>
           )}
-        </CardContent>
-      </Card>
 
-      {/* Results Panel - always present */}
-      <Card sx={{ flex: 2 }}>
-        <CardContent>
-          <Typography variant="h5" component="h2" gutterBottom>
+          <Divider sx={{ mb: 3 }} />
+          
+          <Typography variant="h6" gutterBottom>
             Evaluation Results
           </Typography>
-          {!evaluationResults && (
+          
+          {!evaluationResults ? (
             <Box 
               sx={{ 
-                mt: 2,
                 p: 4,
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                minHeight: '200px',
+                minHeight: '150px',
                 backgroundColor: 'background.default',
                 borderRadius: 1
               }}
             >
               <Typography variant="body1" color="text.secondary" align="center">
-                Select a model and click "Evaluate" to see results
+                Select a model and click "Evaluate Model" to see results
               </Typography>
             </Box>
-          )}
-          {evaluationResults && (
+          ) : (
             <Box 
               sx={{ 
-                mt: 2, 
                 p: 2, 
-                maxHeight: 600, 
+                maxHeight: 400, 
                 overflow: 'auto', 
                 backgroundColor: 'background.default',
                 fontFamily: 'monospace',
@@ -1178,106 +1345,6 @@ const App = () => {
   // Classify Tab
   const renderClassifyTab = () => (
     <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3, mt: 2 }}>
-      <Paper elevation={3} sx={{ my: 2, p: 3, flex: 2 }}>
-        <Typography variant="h5" component="h2" gutterBottom>
-          <CategoryIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-          Classify Data
-        </Typography>
-        
-        <Box sx={{ mt: 2 }}>
-          <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel id="classification-model-label">Select Embedding Model</InputLabel>
-            <Select
-              labelId="classification-model-label"
-              value={selectedClassificationModel}
-              onChange={(e) => setSelectedClassificationModel(e.target.value)}
-              label="Select Embedding Model"
-              disabled={loading}
-            >
-              <MenuItem value="">
-                <em>Select a model...</em>
-              </MenuItem>
-              {embeddingFiles.map((file) => (
-                <MenuItem key={file.path} value={file.path}>
-                  {file.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          
-          <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel id="unclassified-file-label">Select Unclassified CSV</InputLabel>
-            <Select
-              labelId="unclassified-file-label"
-              value={selectedCsvFile}
-              onChange={(e) => setSelectedCsvFile(e.target.value)}
-              label="Select Unclassified CSV"
-              disabled={loading}
-            >
-              <MenuItem value="">
-                <em>Select a CSV file...</em>
-              </MenuItem>
-              {csvFiles.map((file) => (
-                <MenuItem key={file.path} value={file.path}>
-                  {file.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          
-          <Button
-            variant="contained"
-            color="success"
-            disabled={!selectedClassificationModel || !selectedCsvFile || loading}
-            onClick={handleClassifyData}
-            fullWidth
-            sx={{ mt: 2 }}
-            startIcon={loading ? <CircularProgress size={24} /> : <CategoryIcon />}
-          >
-            {loading ? 'Classifying...' : 'Classify Data'}
-          </Button>
-        </Box>
-        
-        {classifyStatus.show && (
-          <Alert severity={classifyStatus.severity} sx={{ mt: 2, mb: 3 }}>
-            {classifyStatus.message}
-          </Alert>
-        )}
-        
-        {classificationResults.length > 0 && (
-          <Box sx={{ mt: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Classification Results
-            </Typography>
-            
-            <TableContainer component={Paper} sx={{ maxHeight: 440 }}>
-              <Table stickyHeader aria-label="classification results table" size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Category</TableCell>
-                    <TableCell>Comment</TableCell>
-                    <TableCell align="right">Cosine Score</TableCell>
-                    <TableCell align="right">Similar Samples</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {classificationResults.map((row, index) => (
-                    <TableRow key={index} hover>
-                      <TableCell component="th" scope="row">
-                        {row.category || 'Unknown'}
-                      </TableCell>
-                      <TableCell>{row.comment}</TableCell>
-                      <TableCell align="right">{row.nearest_cosine_score ? `${row.nearest_cosine_score}%` : 'N/A'}</TableCell>
-                      <TableCell align="right">{row.similar_samples_count || 'N/A'}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Box>
-        )}
-      </Paper>
-
       {/* CSV Management Panel */}
       <Card sx={{ flex: 1, my: 2, height: 'fit-content' }}>
         <CardContent>
@@ -1455,8 +1522,321 @@ const App = () => {
           </List>
         </CardContent>
       </Card>
+
+      <Paper elevation={3} sx={{ my: 2, p: 3, flex: 2 }}>
+        <Typography variant="h5" component="h2" gutterBottom>
+          <CategoryIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+          Classify Data
+        </Typography>
+        
+        <Box sx={{ mt: 2 }}>
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel id="classification-model-label">Select Embedding Model</InputLabel>
+            <Select
+              labelId="classification-model-label"
+              value={selectedClassificationModel}
+              onChange={(e) => setSelectedClassificationModel(e.target.value)}
+              label="Select Embedding Model"
+              disabled={loading}
+            >
+              <MenuItem value="">
+                <em>Select a model...</em>
+              </MenuItem>
+              {embeddingFiles.map((file) => (
+                <MenuItem key={file.path} value={file.path}>
+                  {file.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel id="unclassified-file-label">Select Unclassified CSV</InputLabel>
+            <Select
+              labelId="unclassified-file-label"
+              value={selectedCsvFile}
+              onChange={(e) => setSelectedCsvFile(e.target.value)}
+              label="Select Unclassified CSV"
+              disabled={loading}
+            >
+              <MenuItem value="">
+                <em>Select a CSV file...</em>
+              </MenuItem>
+              {csvFiles.map((file) => (
+                <MenuItem key={file.path} value={file.path}>
+                  {file.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          
+          <Button
+            variant="contained"
+            color="success"
+            disabled={!selectedClassificationModel || !selectedCsvFile || loading}
+            onClick={handleClassifyData}
+            fullWidth
+            sx={{ mt: 2 }}
+            startIcon={loading ? <CircularProgress size={24} /> : <CategoryIcon />}
+          >
+            {loading ? 'Classifying...' : 'Classify Data'}
+          </Button>
+        </Box>
+        
+        {classifyStatus.show && (
+          <Alert severity={classifyStatus.severity} sx={{ mt: 2, mb: 3 }}>
+            {classifyStatus.message}
+          </Alert>
+        )}
+        
+        {classificationResults.length > 0 ? (
+          <Box sx={{ mt: 3 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6">
+                Classification Results
+              </Typography>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => {
+                  // Create CSV content from classification results
+                  const headers = ['category', 'comment', 'nearest_cosine_score', 'similar_samples_count'];
+                  const csvRows = [headers.join(',')];
+                  
+                  classificationResults.forEach(row => {
+                    const formattedRow = [
+                      `"${(row.category || 'Unknown').replace(/"/g, '""')}"`,
+                      `"${row.comment.replace(/"/g, '""')}"`,
+                      row.nearest_cosine_score ? row.nearest_cosine_score : 'N/A',
+                      row.similar_samples_count || 'N/A'
+                    ];
+                    csvRows.push(formattedRow.join(','));
+                  });
+                  
+                  const csvContent = csvRows.join('\n');
+                  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement('a');
+                  link.href = url;
+                  link.setAttribute('download', 'classification_results.csv');
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                }}
+              >
+                Download as CSV
+              </Button>
+            </Box>
+            
+            <TableContainer component={Paper} sx={{ maxHeight: 440 }}>
+              <Table stickyHeader aria-label="classification results table" size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Category</TableCell>
+                    <TableCell>Comment</TableCell>
+                    <TableCell align="right">Cosine Score</TableCell>
+                    <TableCell align="right">Similar Samples</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {classificationResults.map((row, index) => (
+                    <TableRow key={index} hover>
+                      <TableCell component="th" scope="row">
+                        {row.category || 'Unknown'}
+                      </TableCell>
+                      <TableCell>{row.comment}</TableCell>
+                      <TableCell align="right">{row.nearest_cosine_score ? `${row.nearest_cosine_score}%` : 'N/A'}</TableCell>
+                      <TableCell align="right">{row.similar_samples_count || 'N/A'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Box>
+        ) : (
+          <Box sx={{ 
+            mt: 4, 
+            p: 4, 
+            display: 'flex', 
+            flexDirection: 'column',
+            alignItems: 'center',
+            minHeight: '250px',
+            justifyContent: 'center',
+            backgroundColor: 'background.default',
+            borderRadius: 1
+          }}>
+            <CategoryIcon sx={{ fontSize: 60, color: 'text.secondary', opacity: 0.5, mb: 2 }} />
+            <Typography variant="h6" color="text.secondary" align="center" gutterBottom>
+              No Classification Results Yet
+            </Typography>
+            <Typography variant="body2" color="text.secondary" align="center">
+              Select an embedding model and an unclassified CSV file, then click "Classify Data" to see results here.
+            </Typography>
+          </Box>
+        )}
+      </Paper>
     </Box>
   );
+  
+  // About Tab
+  const renderAboutTab = () => (
+    <Paper elevation={3} sx={{ my: 2, p: 3 }}>
+      {readmeContent ? (
+        <Box sx={{ 
+          maxWidth: '900px',
+          mx: 'auto',
+          px: { xs: 1, sm: 2, md: 4 },
+          py: 3,
+          borderRadius: 1,
+          bgcolor: 'background.default',
+          '& img': { maxWidth: '100%' },
+          '& h1': { 
+            fontSize: '2.2rem', 
+            mb: 2.5, 
+            fontWeight: 'bold',
+            color: 'primary.main'
+          },
+          '& h2': { 
+            fontSize: '1.6rem', 
+            mt: 4, 
+            mb: 2.5, 
+            fontWeight: 'bold',
+            color: mode === 'dark' ? 'primary.light' : 'primary.dark',
+            borderBottom: 1,
+            borderColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+            pb: 1
+          },
+          '& h3': { 
+            fontSize: '1.25rem', 
+            mt: 3, 
+            mb: 1.5, 
+            fontWeight: 'bold',
+            color: mode === 'dark' ? 'primary.light' : 'primary.dark'
+          },
+          '& p': { 
+            my: 1.5,
+            lineHeight: 1.6,
+            maxWidth: '800px' 
+          },
+          '& code': { 
+            bgcolor: mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)', 
+            p: 0.5, 
+            borderRadius: 0.5,
+            fontFamily: 'Consolas, Monaco, "Andale Mono", monospace',
+            fontSize: '0.9rem'
+          },
+          '& pre': { 
+            bgcolor: mode === 'dark' ? 'rgba(30, 30, 30, 0.8)' : 'rgba(240, 240, 240, 0.8)', 
+            p: 3,
+            mt: 2,
+            mb: 3, 
+            borderRadius: 1,
+            overflowX: 'auto',
+            border: 1,
+            borderColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+            boxShadow: mode === 'dark' ? '0 3px 5px rgba(0, 0, 0, 0.3)' : '0 1px 3px rgba(0, 0, 0, 0.1)',
+            '& code': { 
+              p: 0, 
+              bgcolor: 'transparent',
+              fontSize: '0.85rem',
+              lineHeight: 1.5,
+              fontFamily: 'Consolas, Monaco, "Andale Mono", monospace'
+            }
+          },
+          '& ul, & ol': { 
+            pl: 4, 
+            mb: 2.5,
+            mt: 1.5 
+          },
+          '& li': { 
+            mb: 1.5,
+            lineHeight: 1.5 
+          },
+          '& blockquote': { 
+            borderLeft: 4, 
+            borderColor: 'primary.main', 
+            pl: 2, 
+            py: 1, 
+            my: 2,
+            bgcolor: mode === 'dark' ? 'rgba(144, 202, 249, 0.1)' : 'rgba(25, 118, 210, 0.05)'
+          },
+          '& a': {
+            color: 'primary.main',
+            textDecoration: 'none',
+            '&:hover': {
+              textDecoration: 'underline'
+            }
+          },
+          '& hr': {
+            my: 4,
+            border: 'none',
+            height: '1px',
+            bgcolor: mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'
+          }
+        }} dangerouslySetInnerHTML={{ __html: renderMarkdown(readmeContent) }} />
+      ) : (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+          <CircularProgress />
+        </Box>
+      )}
+    </Paper>
+  );
+  
+  // Helper function to render markdown content
+  const renderMarkdown = (markdown) => {
+    // Enhanced markdown parser with better typography handling
+    return markdown
+      // Headers with enhanced spacing
+      .replace(/^# (.*$)/gm, '<h1>$1</h1>')
+      .replace(/^## (.*$)/gm, '<h2>$1</h2>')
+      .replace(/^### (.*$)/gm, '<h3>$1</h3>')
+      .replace(/^#### (.*$)/gm, '<h4>$1</h4>')
+      // Bold with semantic meaning
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      // Italic with semantic meaning
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      // Code blocks with syntax highlighting hints - improved
+      .replace(/```([a-zA-Z]*)\n([\s\S]*?)```/g, (match, lang, code) => {
+        // Trim empty lines at the start and end
+        const trimmedCode = code.replace(/^\s*\n|\n\s*$/g, '');
+        return `<pre class="language-${lang || 'text'}"><code>${trimmedCode}</code></pre>`;
+      })
+      // Fallback for code blocks without language specification
+      .replace(/```([\s\S]*?)```/g, (match, code) => {
+        // Trim empty lines at the start and end
+        const trimmedCode = code.replace(/^\s*\n|\n\s*$/g, '');
+        return `<pre><code>${trimmedCode}</code></pre>`;
+      })
+      // Inline code
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      // Lists (unordered) with better spacing
+      .replace(/^\- (.*$)/gm, '<li>$1</li>')
+      .replace(/<\/li>\n<li>/g, '</li><li>')
+      .replace(/<\/li>\n\n<li>/g, '</li></ul>\n\n<ul><li>')
+      .replace(/^\<li\>/gm, '<ul><li>')
+      .replace(/\<\/li\>$/gm, '</li></ul>')
+      // Lists (ordered) - new addition
+      .replace(/^\d+\. (.*$)/gm, '<li>$1</li>')
+      .replace(/^\<li\>/gm, '<ol><li>')
+      .replace(/\<\/li\>$/gm, '</li></ol>')
+      // Links with better accessibility
+      .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+      // Better paragraph handling - double line breaks create paragraphs
+      .replace(/\n\n/g, '</p><p>')
+      // Intelligent line breaks - single line breaks are preserved within paragraphs
+      .replace(/\n/g, '<br />')
+      // Wrap all content in a paragraph
+      .replace(/^(.+)$/, '<p>$1</p>')
+      // Fix duplicate paragraph tags
+      .replace(/<p><p>/g, '<p>')
+      .replace(/<\/p><\/p>/g, '</p>')
+      // Blockquotes with better styling
+      .replace(/^\> (.*$)/gm, '<blockquote>$1</blockquote>')
+      // Image support with responsive sizing
+      .replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1" style="max-width:100%;height:auto;" />')
+      // Horizontal rule with semantic meaning
+      .replace(/^---$/gm, '<hr aria-role="separator" />');
+  };
   
   return (
     <ThemeProvider theme={theme}>
@@ -1478,16 +1858,18 @@ const App = () => {
             textColor="inherit"
             indicatorColor="secondary"
           >
+            <Tab icon={<InfoIcon />} label="About" />
             <Tab icon={<UploadIcon />} label="Create and Manage" />
-            <Tab icon={<SettingsIcon />} label="Evaluate" />
+            <Tab icon={<SettingsIcon />} label="Config & Evaluate" />
             <Tab icon={<CategoryIcon />} label="Classify" />
           </Tabs>
         </AppBar>
         
         <Container maxWidth="lg" sx={{ mt: 4, mb: 4, flex: 1 }}>
-          {currentTab === 0 && renderCreateEmbeddingsTab()}
-          {currentTab === 1 && renderManageEvaluateTab()}
-          {currentTab === 2 && renderClassifyTab()}
+          {currentTab === 0 && renderAboutTab()}
+          {currentTab === 1 && renderCreateEmbeddingsTab()}
+          {currentTab === 2 && renderManageEvaluateTab()}
+          {currentTab === 3 && renderClassifyTab()}
         </Container>
         
         <Box component="footer" sx={{ p: 2, textAlign: 'center', bgcolor: 'background.paper' }}>
