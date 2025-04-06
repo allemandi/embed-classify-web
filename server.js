@@ -6,6 +6,8 @@ import { fileURLToPath } from 'url';
 import csvEmbedding from './commands/csv-embedding.js';
 import { embeddingClassification } from './commands/embedding-classification.js';
 import logger from './utils/logger.js';
+import { rankSamplesBySimilarity } from './utils/embedding.js';
+import { resolveBestCategory, calculateMetrics } from './utils/stats.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -162,25 +164,137 @@ app.post('/api/classify', async (req, res) => {
       return res.status(400).json({ error: 'Embedding file is required' });
     }
 
+    // For evaluation-only mode (no prediction), we don't need an unclassified file
     const outputFile = path.join(dataDir, 'predicted.csv');
     const resultMetrics = true;
     const evaluateModel = true;
+    
+    let jsonData;
+    try {
+      const jsonFile = await fs.promises.readFile(embeddingFile, 'utf-8');
+      jsonData = JSON.parse(jsonFile);
+      logger.info(`Fetching ${jsonData.length} samples from comparison set`);
+    } catch (err) {
+      logger.error(`Failed to read or parse comparison file: ${err.message}`);
+      throw err;
+    }
 
-    await embeddingClassification(
-      unclassifiedFile || null,
-      embeddingFile,
-      outputFile,
-      resultMetrics,
-      evaluateModel
+    // Randomize the embedding array
+    const shuffle = (array) => {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    };
+
+    const comparisonPercentage = 80;
+    const randomizedEmbeddingArray = shuffle([...jsonData]);
+    const originalEmbeddingLength = randomizedEmbeddingArray.length;
+    const majorityIndex = Math.round(
+      originalEmbeddingLength * (comparisonPercentage / 100)
     );
 
-    // Read the evaluation results
-    const evaluationResults = fs.readFileSync(outputFile, 'utf-8');
+    const comparisonData = randomizedEmbeddingArray.slice(0, majorityIndex);
+    logger.info(
+      `Reserving ${comparisonPercentage}% (${comparisonData.length}) of original dataset to compare.`
+    );
+
+    // Run evaluation
+    let evaluationResults = null;
     
+    if (evaluateModel) {
+      const evaluateData = randomizedEmbeddingArray.slice(majorityIndex);
+      logger.info(
+        `Starting model evaluation preview using remaining ${100 - comparisonPercentage}% (${evaluateData.length}) of samples.`
+      );
+
+      // Process evaluation in chunks to prevent memory issues
+      const chunkSize = 100;
+      const results = [];
+      
+      for (let i = 0; i < evaluateData.length; i += chunkSize) {
+        const chunk = evaluateData.slice(i, i + chunkSize);
+        const chunkResults = await Promise.all(
+          chunk.map(async (item) => {
+            const searchResults = await rankSamplesBySimilarity(
+              item.text,
+              comparisonData,
+              40, // maxSamplesToSearch
+              30  // similarityThresholdPercent
+            );
+            const predictedCategory = resolveBestCategory(searchResults, true) || '???';
+            const confidence = searchResults[0]?.score || 0;
+
+            return {
+              text: item.text,
+              category: predictedCategory,
+              confidence,
+              actualCategory: item.category,
+            };
+          })
+        );
+        results.push(...chunkResults);
+      }
+
+      const metrics = calculateMetrics(results, evaluateData);
+      evaluationResults = {
+        totalPredictions: metrics.totalPredictions,
+        correctPredictions: metrics.correctPredictions,
+        accuracy: metrics.accuracy,
+        avgConfidence: metrics.avgConfidence,
+        categoryMetrics: metrics.categoryMetrics
+      };
+
+      // Log evaluation results
+      logger.info('\n=== Model Evaluation Results ===');
+      logger.info(`Total Test Samples: ${metrics.totalPredictions}`);
+      logger.info(`Correct Predictions: ${metrics.correctPredictions}`);
+      logger.info(`Overall Accuracy: ${(metrics.accuracy * 100).toFixed(2)}%`);
+      logger.info(
+        `Average Confidence: ${(metrics.avgConfidence * 100).toFixed(2)}%`
+      );
+
+      logger.info('\n=== Category-wise Performance ===');
+      Object.entries(metrics.categoryMetrics).forEach(([category, stats]) => {
+        logger.info(`\nCategory: ${category}`);
+        logger.info(`├─ Predictions: ${stats.predicted}`);
+        logger.info(`├─ Correct: ${stats.correct}`);
+        logger.info(`├─ Actual Occurrences: ${stats.actual}`);
+        const categoryPrecision =
+          stats.predicted > 0
+            ? ((stats.correct / stats.predicted) * 100).toFixed(2)
+            : '0.00';
+        const categoryRecall =
+          stats.actual > 0
+            ? ((stats.correct / stats.actual) * 100).toFixed(2)
+            : '0.00';
+        logger.info(`├─ Precision: ${categoryPrecision}%`);
+        logger.info(`└─ Recall: ${categoryRecall}%`);
+      });
+      logger.info('\n');
+    }
+
+    // Only process unclassified input if a file was provided and it's a valid path
+    if (unclassifiedFile && typeof unclassifiedFile === 'string') {
+      try {
+        await embeddingClassification(
+          unclassifiedFile,
+          embeddingFile,
+          outputFile,
+          resultMetrics,
+          false // Don't run evaluation again
+        );
+      } catch (error) {
+        logger.error(`Error processing unclassified file: ${error.message}`);
+        // Don't fail the whole request - just log the error
+      }
+    }
+
     res.json({ 
       success: true, 
-      message: 'Classification completed successfully',
-      results: evaluationResults
+      message: 'Evaluation completed successfully',
+      evaluationResults: evaluationResults
     });
   } catch (error) {
     logger.error(`Error during classification: ${error.message}`);
