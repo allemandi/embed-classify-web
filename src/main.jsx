@@ -49,8 +49,6 @@ import {
   Category as CategoryIcon,
   Dataset as DatasetIcon,
   Settings as SettingsIcon,
-  CheckCircle as SuccessIcon,
-  Error as ErrorIcon,
   Edit as EditIcon,
   Save as SaveIcon,
   Cancel as CancelIcon,
@@ -60,64 +58,43 @@ import {
 // App component
 const App = () => {
   // Theme state
-  const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
   const [mode, setMode] = useState('dark');
   const [currentTab, setCurrentTab] = useState(0);
 
-  // App state
+  // File upload state
   const [fileToUpload, setFileToUpload] = useState(null);
   const [classifyCsvToUpload, setClassifyCsvToUpload] = useState(null);
-  const [uploadStatus, setUploadStatus] = useState({
-    show: false,
-    message: '',
-    severity: 'info',
-  });
-  const [evaluateStatus, setEvaluateStatus] = useState({
-    show: false,
-    message: '',
-    severity: 'info',
-  });
-  const [classifyStatus, setClassifyStatus] = useState({
-    show: false,
-    message: '',
-    severity: 'info',
-  });
-  const [manageStatus, setManageStatus] = useState({
-    show: false,
-    message: '',
-    severity: 'info',
-  });
+  
+  // Status messages
+  const [uploadStatus, setUploadStatus] = useState({ show: false, message: '', severity: 'info' });
+  const [evaluateStatus, setEvaluateStatus] = useState({ show: false, message: '', severity: 'info' });
+  const [classifyStatus, setClassifyStatus] = useState({ show: false, message: '', severity: 'info' });
+  const [manageStatus, setManageStatus] = useState({ show: false, message: '', severity: 'info' });
+  const [classifyCsvStatus, setClassifyCsvStatus] = useState({ show: false, message: '', severity: 'info' });
+  
+  // UI state
   const [loading, setLoading] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [editingFile, setEditingFile] = useState(null);
   const [editFileName, setEditFileName] = useState('');
   const [editingCsvFile, setEditingCsvFile] = useState(null);
   const [editCsvFileName, setEditCsvFileName] = useState('');
-  const [newFileName, setNewFileName] = useState('');
-  const [fileToRename, setFileToRename] = useState(null);
   const [readmeContent, setReadmeContent] = useState('');
 
   // Data state
   const [embeddingFiles, setEmbeddingFiles] = useState([]);
   const [csvFiles, setCsvFiles] = useState([]);
   const [selectedEvaluationModel, setSelectedEvaluationModel] = useState('');
-  const [selectedClassificationModel, setSelectedClassificationModel] =
-    useState('');
+  const [selectedClassificationModel, setSelectedClassificationModel] = useState('');
   const [selectedCsvFile, setSelectedCsvFile] = useState('');
   const [evaluationResults, setEvaluationResults] = useState('');
   const [classificationResults, setClassificationResults] = useState([]);
-  const [classifyCsvStatus, setClassifyCsvStatus] = useState({
-    show: false,
-    message: '',
-    severity: 'info',
-  });
 
   // Configuration state
   const [weightedVotes, setWeightedVotes] = useState(true);
   const [comparisonPercentage, setComparisonPercentage] = useState(80); // Default 80%
   const [maxSamplesToSearch, setMaxSamplesToSearch] = useState(40); // Default 40 samples
-  const [similarityThresholdPercent, setSimilarityThresholdPercent] =
-    useState(30); // Default 30%
+  const [similarityThresholdPercent, setSimilarityThresholdPercent] = useState(30); // Default 30%
 
   // Create dynamic theme
   const theme = React.useMemo(
