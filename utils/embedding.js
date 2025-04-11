@@ -1,5 +1,3 @@
-import csv from 'csvtojson';
-import path from 'path';
 import { pipeline } from '@xenova/transformers';
 import logger from './logger.js';
 

@@ -1,8 +1,5 @@
 import logger from './logger.js';
 
-// Regex patterns
-const WHITESPACE_REGEX = /\s+/g;
-
 // Normalizes whitespace in text
 const normalizeWhitespace = (text) => {
   if (!text) return '';
