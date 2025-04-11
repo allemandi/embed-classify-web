@@ -1,0 +1,4 @@
+category,comment,nearest_cosine_score,similar_samples_count
+"apple","red crunchy but waxy skin.",64.90,40
+"watermelon","large, green, with black seeds",57.32,40
+"banana","yellow, Famous for potassium",51.92,35
