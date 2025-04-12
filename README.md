@@ -10,6 +10,9 @@ A sleek, modern web app for text classification using embeddings.
 - ⚙️ Customizable classification parameters
 - 🌗 Dark/light mode
 
+## Acknowledgments
+- This project was developed with the help of AI tools (e.g., GitHub Copilot, Cursor) for code suggestions, debugging, and optimizations.
+
 ## Quick Start
 
 Install dependencies
