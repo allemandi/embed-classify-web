@@ -1,6 +1,6 @@
 # embed-classify-web
 
-A sleek, modern web app for text classification using embeddings.
+Sleek, modern web app for text classification using embeddings.
 
 ## ✨ Features
 
@@ -13,8 +13,8 @@ A sleek, modern web app for text classification using embeddings.
 ## 🚀 Getting Started
 
 ```bash
-git clone https://github.com/allemandi/embed-classify-local-web.git
-cd embed-classify-local-web
+git clone https://github.com/allemandi/embed-classify-web.git
+cd embed-classify-web
 yarn install
 yarn start
 ```
@@ -46,8 +46,8 @@ Check out these related projects that might interest you:
 - **[Embed Classify CLI](https://github.com/allemandi/embed-classify-cli)**  
   Node.js CLI tool for local text classification using word embeddings
 
-- **[Winkjs CSV Text Classify](https://github.com/allemandi/embed-classify-cli)**  
-  Text classification CLI scripts reading and outputting CSV files using winkjs Naive Bayes Classifier
+- **[@allemandi/embed-utils](https://github.com/allemandi/embed-utils)**  
+  Utilities for text classification using cosine similarity embeddings.
 
 - **[Vector Knowledge Base](https://github.com/allemandi/vector-knowledge-base)**  
   A minimalist command-line knowledge system with semantic memory capabilities using vector embeddings for information retrieval.
