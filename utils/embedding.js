@@ -1,4 +1,4 @@
-import { pipeline } from '@xenova/transformers';
+import { pipeline } from '@huggingface/transformers';
 import logger from './logger.js';
 
 // Initialize the pipeline outside of the function to avoid reloading on each call
@@ -13,7 +13,8 @@ const initializeModel = async () => {
     try {
       embeddingExtractor = await pipeline(
         'feature-extraction',
-        'Xenova/all-MiniLM-L6-v2'
+        'Xenova/all-MiniLM-L6-v2',
+        { dtype: "fp32" }
       );
       logger.info('Embedding model initialized successfully');
     } catch (error) {
