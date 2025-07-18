@@ -1,6 +1,6 @@
 {
   "name": "embed-classify-web",
-  "version": "1.0.0",
+  "version": "1.0.4",
   "main": "server.js",
   "repository": "https://github.com/allemandi/embed-classify-local-web.git",
   "author": "Daniel Lam",
