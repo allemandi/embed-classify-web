@@ -14,7 +14,8 @@
     "start": "concurrently \"vite\" \"node server.js\"",
     "build": "vite build",
     "preview": "vite preview",
-    "release:build": "vite build"
+    "release:build": "vite build",
+    "test": "node --test utils/*.test.js"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -39,6 +40,7 @@
     "eslint": "^10.2.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.5",
+    "eslint-plugin-react": "^7.37.5",
     "globals": "^17.4.0",
     "prettier": "^3.8.1",
     "vite": "^8.0.7"

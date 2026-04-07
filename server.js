@@ -137,11 +137,9 @@ app.post('/api/files/delete', (req, res) => {
     // Check if it's a JSON or CSV file
     if (!filePath.endsWith('.json') && !filePath.endsWith('.csv')) {
       logger.error(`Not a supported file type: ${filePath}`);
-      return res
-        .status(400)
-        .json({
-          error: 'Only JSON and CSV files can be deleted using this endpoint',
-        });
+      return res.status(400).json({
+        error: 'Only JSON and CSV files can be deleted using this endpoint',
+      });
     }
 
     // Delete the file
@@ -190,11 +188,9 @@ app.post('/api/files/rename', (req, res) => {
 
     if (!isJsonFile && !isCsvFile) {
       logger.error(`Not a supported file type: ${oldPath}`);
-      return res
-        .status(400)
-        .json({
-          error: 'Only JSON and CSV files can be renamed using this endpoint',
-        });
+      return res.status(400).json({
+        error: 'Only JSON and CSV files can be renamed using this endpoint',
+      });
     }
 
     // Ensure newName has the correct extension

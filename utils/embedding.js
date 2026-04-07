@@ -14,7 +14,7 @@ const initializeModel = async () => {
       embeddingExtractor = await pipeline(
         'feature-extraction',
         'Xenova/all-MiniLM-L6-v2',
-        { dtype: "fp32" }
+        { dtype: 'fp32' }
       );
       logger.info('Embedding model initialized successfully');
     } catch (error) {

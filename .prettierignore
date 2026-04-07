@@ -4,3 +4,6 @@ coverage
 node_modules
 dist
 *.min.js
+
+# Ignore data files:
+data/*.json
