@@ -42,7 +42,9 @@ Visit `http://localhost:3000` in your browser.
 - [@xenova/transformers](https://huggingface.co/Xenova/all-MiniLM-L6-v2) for embeddings
 
 ## 🔗 Related Projects
+
 Check out these related projects that might interest you:
+
 - **[Embed Classify CLI](https://github.com/allemandi/embed-classify-cli)**  
   Node.js CLI tool for local text classification using word embeddings
 
@@ -53,6 +55,7 @@ Check out these related projects that might interest you:
   A minimalist command-line knowledge system with semantic memory capabilities using vector embeddings for information retrieval.
 
 ## 🤝 Contributing
+
 If you have ideas, improvements, or new features:
 
 1. Fork the project
@@ -62,8 +65,8 @@ If you have ideas, improvements, or new features:
 5. Open a Pull Request
 
 ## ☕ Support
-If this project has helped you or saved you time, consider [buying me a coffee](https://www.buymeacoffee.com/allemandi) to help fuel more ideas and improvements!
 
+If this project has helped you or saved you time, consider [buying me a coffee](https://www.buymeacoffee.com/allemandi) to help fuel more ideas and improvements!
 
 ## 💡 Acknowledgments
 

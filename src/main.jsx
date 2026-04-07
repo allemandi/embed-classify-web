@@ -64,14 +64,34 @@ const App = () => {
   // File upload state
   const [fileToUpload, setFileToUpload] = useState(null);
   const [classifyCsvToUpload, setClassifyCsvToUpload] = useState(null);
-  
+
   // Status messages
-  const [uploadStatus, setUploadStatus] = useState({ show: false, message: '', severity: 'info' });
-  const [evaluateStatus, setEvaluateStatus] = useState({ show: false, message: '', severity: 'info' });
-  const [classifyStatus, setClassifyStatus] = useState({ show: false, message: '', severity: 'info' });
-  const [manageStatus, setManageStatus] = useState({ show: false, message: '', severity: 'info' });
-  const [classifyCsvStatus, setClassifyCsvStatus] = useState({ show: false, message: '', severity: 'info' });
-  
+  const [uploadStatus, setUploadStatus] = useState({
+    show: false,
+    message: '',
+    severity: 'info',
+  });
+  const [evaluateStatus, setEvaluateStatus] = useState({
+    show: false,
+    message: '',
+    severity: 'info',
+  });
+  const [classifyStatus, setClassifyStatus] = useState({
+    show: false,
+    message: '',
+    severity: 'info',
+  });
+  const [manageStatus, setManageStatus] = useState({
+    show: false,
+    message: '',
+    severity: 'info',
+  });
+  const [classifyCsvStatus, setClassifyCsvStatus] = useState({
+    show: false,
+    message: '',
+    severity: 'info',
+  });
+
   // UI state
   const [loading, setLoading] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState([]);
@@ -85,7 +105,8 @@ const App = () => {
   const [embeddingFiles, setEmbeddingFiles] = useState([]);
   const [csvFiles, setCsvFiles] = useState([]);
   const [selectedEvaluationModel, setSelectedEvaluationModel] = useState('');
-  const [selectedClassificationModel, setSelectedClassificationModel] = useState('');
+  const [selectedClassificationModel, setSelectedClassificationModel] =
+    useState('');
   const [selectedCsvFile, setSelectedCsvFile] = useState('');
   const [evaluationResults, setEvaluationResults] = useState('');
   const [classificationResults, setClassificationResults] = useState([]);
@@ -94,7 +115,8 @@ const App = () => {
   const [weightedVotes, setWeightedVotes] = useState(true);
   const [comparisonPercentage, setComparisonPercentage] = useState(80); // Default 80%
   const [maxSamplesToSearch, setMaxSamplesToSearch] = useState(40); // Default 40 samples
-  const [similarityThresholdPercent, setSimilarityThresholdPercent] = useState(30); // Default 30%
+  const [similarityThresholdPercent, setSimilarityThresholdPercent] =
+    useState(30); // Default 30%
 
   // Create dynamic theme
   const theme = React.useMemo(
