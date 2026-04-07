@@ -31,14 +31,9 @@ export const processCsvForEmbedding = async (
     );
     const csvData = await parseCsvToJson(filePath);
 
-    // Validate that the required columns exist somewhere in the CSV
-    const columnsExist = csvData.some(
-      (row) =>
-        Object.prototype.hasOwnProperty.call(row, categoryColumn) &&
-        Object.prototype.hasOwnProperty.call(row, textColumn)
-    );
-
-    if (!columnsExist) {
+    // Validate that the required columns exist
+    const headers = Object.keys(csvData[0]);
+    if (!headers.includes(categoryColumn) || !headers.includes(textColumn)) {
       logger.error(
         `Required columns ${categoryColumn} or ${textColumn} not found in CSV`
       );
@@ -46,6 +41,7 @@ export const processCsvForEmbedding = async (
         `Required columns ${categoryColumn} or ${textColumn} not found in CSV`
       );
     }
+
     let skippedRows = 0;
     const processedData = csvData
       .reduce((acc, row, index) => {
