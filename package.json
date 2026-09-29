@@ -21,9 +21,9 @@
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@huggingface/transformers": "^4.2.0",
-    "@mui/icons-material": "^7.3.9",
-    "@mui/material": "^7.3.9",
-    "concurrently": "^9.2.1",
+    "@mui/icons-material": "^9.4.0",
+    "@mui/material": "^9.4.0",
+    "concurrently": "^10.0.5",
     "csvtojson": "^2.0.14",
     "express": "^5.2.1",
     "multer": "^2.4.0",
@@ -42,6 +42,6 @@
     "globals": "^17.6.0",
     "prettier": "^3.8.3",
     "vite": "^8.0.16",
-    "vitest": "^4.1.11"
+    "vitest": "^5.0.2"
   }
 }
